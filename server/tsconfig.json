@@ -1,0 +1,48 @@
+{
+  "compilerOptions": {
+    // What version of JavaScript we are compiling to
+    "target": "ES2022",
+    
+    // How modules work (CommonJS is standard for Node.js)
+    "module": "CommonJS",
+    
+    // What JavaScript features we can use
+    "lib": ["ES2022"],
+    
+    // Where compiled JavaScript goes
+    "outDir": "./dist",
+    
+    // Where our TypeScript files are
+    "rootDir": "./",
+    
+    // Enable all strict type checking
+    "strict": true,
+    
+    // Allow default imports from modules
+    "esModuleInterop": true,
+    
+    // Skip checking .d.ts files (faster)
+    "skipLibCheck": true,
+    
+    // Force consistent file name casing
+    "forceConsistentCasingInFileNames": true,
+    
+    // Allow importing JSON files
+    "resolveJsonModule": true,
+    
+    // How to resolve modules
+    "moduleResolution": "node",
+    
+    // What types to include
+    "types": ["node"],
+    
+    // Where to find type definitions
+    "typeRoots": ["./node_modules/@types"]
+  },
+  
+  // Which files to compile
+  "include": ["**/*.ts"],
+  
+  // Which files to ignore
+  "exclude": ["node_modules", "dist", "uploads"]
+}
