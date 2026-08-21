@@ -154,62 +154,44 @@ export const getFeaturedProjects = async (
 // Create new project (admin only)
 // ============================================
 
-export const createProject = async (
-  req: Request,
-  res: Response
-): Promise<void> => {
+// Create new project (admin only)
+export const createProject = async (req: Request, res: Response): Promise<void> => {
   try {
-    const request = req as MulterRequest;
+    const projectData = req.body;
 
-    const projectData = {
-      ...req.body,
-    };
-
-    // ----------------------------------------
-    // Thumbnail
-    // ----------------------------------------
-
-    if (request.files?.thumbnail?.[0]) {
-      const thumbnail = request.files.thumbnail[0];
-
-      projectData.thumbnail =
-        `/uploads/projects/${thumbnail.filename}`;
+    // Parse technologies if it's a JSON string
+    if (typeof projectData.technologies === 'string') {
+      try {
+        projectData.technologies = JSON.parse(projectData.technologies);
+      } catch (error) {
+        // If JSON parse fails, split by comma
+        projectData.technologies = projectData.technologies.split(',').map((t: string) => t.trim());
+      }
     }
 
-    // ----------------------------------------
-    // Gallery
-    // ----------------------------------------
-
-    if (
-      request.files?.gallery &&
-      request.files.gallery.length > 0
-    ) {
-      projectData.gallery =
-        request.files.gallery.map(
-          (file) =>
-            `/uploads/projects/${file.filename}`
-        );
+    // Parse featured if it's a string
+    if (typeof projectData.featured === 'string') {
+      projectData.featured = projectData.featured === 'true';
     }
 
-    // ----------------------------------------
+    // Add thumbnail if uploaded
+    if (req.file) {
+      projectData.thumbnail = `/uploads/projects/${req.file.filename}`;
+    }
+
+    // Add gallery images if uploaded
+    if (req.files) {
+      const files = req.files as Express.Multer.File[];
+      projectData.gallery = files.map(file => `/uploads/projects/${file.filename}`);
+    }
+
     // Create project
-    // ----------------------------------------
-
     const project = await Project.create(projectData);
 
-    successResponse(
-      res,
-      'Project created successfully',
-      project,
-      201
-    );
+    // Send created project
+    successResponse(res, 'Project created successfully', project, 201);
   } catch (error) {
-    errorResponse(
-      res,
-      'Failed to create project',
-      500,
-      error
-    );
+    errorResponse(res, 'Failed to create project', 500, error);
   }
 };
 
@@ -217,76 +199,48 @@ export const createProject = async (
 // Update project (admin only)
 // ============================================
 
-export const updateProject = async (
-  req: Request,
-  res: Response
-): Promise<void> => {
+// Update project (admin only)
+export const updateProject = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
+    const projectData = req.body;
 
-    const request = req as MulterRequest;
-
-    const projectData = {
-      ...req.body,
-    };
-
-    // ----------------------------------------
-    // New thumbnail
-    // ----------------------------------------
-
-    if (request.files?.thumbnail?.[0]) {
-      const thumbnail = request.files.thumbnail[0];
-
-      projectData.thumbnail =
-        `/uploads/projects/${thumbnail.filename}`;
+    // Parse technologies if it's a JSON string
+    if (typeof projectData.technologies === 'string') {
+      try {
+        projectData.technologies = JSON.parse(projectData.technologies);
+      } catch (error) {
+        projectData.technologies = projectData.technologies.split(',').map((t: string) => t.trim());
+      }
     }
 
-    // ----------------------------------------
-    // New gallery
-    // ----------------------------------------
-
-    if (
-      request.files?.gallery &&
-      request.files.gallery.length > 0
-    ) {
-      projectData.gallery =
-        request.files.gallery.map(
-          (file) =>
-            `/uploads/projects/${file.filename}`
-        );
+    // Parse featured if it's a string
+    if (typeof projectData.featured === 'string') {
+      projectData.featured = projectData.featured === 'true';
     }
 
-    // ----------------------------------------
-    // Update project
-    // ----------------------------------------
+    // Add thumbnail if uploaded
+    if (req.file) {
+      projectData.thumbnail = `/uploads/projects/${req.file.filename}`;
+    }
 
+    // Find and update project
     const project = await Project.findByIdAndUpdate(
       id,
       projectData,
-      {
-        new: true,
-        runValidators: true,
-      }
+      { new: true, runValidators: true }
     );
 
+    // Check if project exists
     if (!project) {
       errorResponse(res, 'Project not found', 404);
       return;
     }
 
-    successResponse(
-      res,
-      'Project updated successfully',
-      project,
-      200
-    );
+    // Send updated project
+    successResponse(res, 'Project updated successfully', project, 200);
   } catch (error) {
-    errorResponse(
-      res,
-      'Failed to update project',
-      500,
-      error
-    );
+    errorResponse(res, 'Failed to update project', 500, error);
   }
 };
 

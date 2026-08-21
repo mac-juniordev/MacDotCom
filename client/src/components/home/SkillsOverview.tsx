@@ -1,32 +1,74 @@
 // ============================================
-// SKILLS OVERVIEW COMPONENT - FIXED
-// Lucide icons + theme aware
+// SKILLS OVERVIEW COMPONENT - CONNECTED TO API
+// Lucide icons + theme aware + real data
 // ============================================
 
 import { motion } from 'framer-motion';
-import { Atom, Code2, Server, Database, Boxes, Palette } from 'lucide-react';
-import { ComponentType, CSSProperties } from 'react';
+import {
+  Atom,
+  Code2,
+  Server,
+  Database,
+  Boxes,
+  Palette,
+  Wrench,
+} from 'lucide-react';
+import { ComponentType, CSSProperties, useEffect, useState } from 'react';
+import axios from 'axios';
 
 interface Skill {
-  id: number;
+  _id: string;
   name: string;
   proficiency: number;
-  icon: ComponentType<{
-    className?: string;
-    style?: CSSProperties;
-  }>;
-  color: string;
+  category: string;
+  isVisible: boolean;
 }
 
+const API_URL = 'http://localhost:5000/api';
+
+// Icon mapping based on skill name
+const iconMap: Record<
+  string,
+  ComponentType<{ className?: string; style?: CSSProperties }>
+> = {
+  React: Atom,
+  TypeScript: Code2,
+  Node: Server,
+  MongoDB: Database,
+  Express: Boxes,
+  Tailwind: Palette,
+};
+
+// Color mapping based on skill name
+const colorMap: Record<string, string> = {
+  React: '#61dafb',
+  TypeScript: '#3178c6',
+  Node: '#68a063',
+  MongoDB: '#47a248',
+  Express: '#ffffff',
+  Tailwind: '#38bdf8',
+};
+
 const SkillsOverview = () => {
-  const skills: Skill[] = [
-    { id: 1, name: 'React', proficiency: 95, icon: Atom, color: '#61dafb' },
-    { id: 2, name: 'TypeScript', proficiency: 90, icon: Code2, color: '#3178c6' },
-    { id: 3, name: 'Node.js', proficiency: 92, icon: Server, color: '#68a063' },
-    { id: 4, name: 'MongoDB', proficiency: 88, icon: Database, color: '#47a248' },
-    { id: 5, name: 'Express', proficiency: 85, icon: Boxes, color: '#ffffff' },
-    { id: 6, name: 'Tailwind CSS', proficiency: 93, icon: Palette, color: '#38bdf8' },
-  ];
+  const [skills, setSkills] = useState<Skill[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchSkills = async () => {
+      try {
+        const response = await axios.get(`${API_URL}/skills`);
+
+        setSkills(response.data.data || []);
+      } catch (error) {
+        console.error('Failed to fetch skills:', error);
+        setSkills([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchSkills();
+  }, []);
 
   return (
     <section className="relative py-20 overflow-hidden">
@@ -34,17 +76,26 @@ const SkillsOverview = () => {
       <motion.div
         className="absolute inset-0 opacity-10"
         style={{
-          backgroundImage: 'linear-gradient(45deg, #3b82f6 1px, transparent 1px)',
+          backgroundImage:
+            'linear-gradient(45deg, #3b82f6 1px, transparent 1px)',
           backgroundSize: '30px 30px',
         }}
-        animate={{ backgroundPosition: ['0px 0px', '30px 30px'] }}
-        transition={{ duration: 5, repeat: Infinity, ease: 'linear' }}
+        animate={{
+          backgroundPosition: ['0px 0px', '30px 30px'],
+        }}
+        transition={{
+          duration: 5,
+          repeat: Infinity,
+          ease: 'linear',
+        }}
       />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
+        {/* Section heading */}
         <motion.div
           initial={{ opacity: 0, y: 50 }}
           whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
           transition={{ duration: 0.8 }}
           className="text-center mb-12"
         >
@@ -55,81 +106,148 @@ const SkillsOverview = () => {
           </h2>
         </motion.div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {skills.map((skill, index) => {
-            const Icon = skill.icon;
-            return (
-              <motion.div
-                key={skill.id}
-                initial={{ opacity: 0, x: index % 2 === 0 ? -50 : 50 }}
-                whileInView={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.8, delay: index * 0.1 }}
-                className="group"
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-3">
-                    {/* Animated icon */}
-                    <motion.div
+        {/* Loading state */}
+        {loading ? (
+          <div className="flex items-center justify-center py-16">
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{
+                duration: 1,
+                repeat: Infinity,
+                ease: 'linear',
+              }}
+              className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full"
+            />
+          </div>
+        ) : skills.length === 0 ? (
+          /* Empty state */
+          <div className="text-center py-16">
+            <Wrench className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+
+            <p className="text-secondary">
+              No skills added yet.
+            </p>
+          </div>
+        ) : (
+          /* Skills grid */
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {skills.map((skill, index) => {
+              const Icon = iconMap[skill.name] || Code2;
+              const color = colorMap[skill.name] || '#3b82f6';
+
+              return (
+                <motion.div
+                  key={skill._id}
+                  initial={{
+                    opacity: 0,
+                    x: index % 2 === 0 ? -50 : 50,
+                  }}
+                  whileInView={{
+                    opacity: 1,
+                    x: 0,
+                  }}
+                  viewport={{ once: true }}
+                  transition={{
+                    duration: 0.8,
+                    delay: index * 0.1,
+                  }}
+                  className="group"
+                >
+                  {/* Skill header */}
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-3">
+                      {/* Animated icon */}
+                      <motion.div
+                        animate={{
+                          rotate: [0, 360],
+                          scale: [1, 1.2, 1],
+                        }}
+                        transition={{
+                          duration: 3,
+                          repeat: Infinity,
+                          delay: index * 0.3,
+                        }}
+                      >
+                        <Icon
+                          className="w-6 h-6"
+                          style={{ color }}
+                        />
+                      </motion.div>
+
+                      <span className="font-semibold text-primary">
+                        {skill.name}
+                      </span>
+                    </div>
+
+                    {/* Proficiency percentage */}
+                    <motion.span
+                      className="font-bold"
+                      style={{ color }}
                       animate={{
-                        rotate: [0, 360],
-                        scale: [1, 1.2, 1],
+                        scale: [1, 1.1, 1],
                       }}
                       transition={{
-                        duration: 3,
+                        duration: 2,
                         repeat: Infinity,
-                        delay: index * 0.3,
                       }}
                     >
-                      <Icon className="w-6 h-6" style={{ color: skill.color }} />
-                    </motion.div>
-                    <span className="font-semibold text-primary">{skill.name}</span>
+                      {skill.proficiency}%
+                    </motion.span>
                   </div>
-                  <motion.span
-                    className="font-bold"
-                    style={{ color: skill.color }}
-                    animate={{ scale: [1, 1.1, 1] }}
-                    transition={{ duration: 2, repeat: Infinity }}
-                  >
-                    {skill.proficiency}%
-                  </motion.span>
-                </div>
 
-                {/* Progress bar */}
-                <div className="relative h-3 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">
-                  {/* Animated fill */}
-                  <motion.div
-                    className="absolute inset-y-0 left-0 rounded-full"
-                    style={{ backgroundColor: skill.color }}
-                    initial={{ width: 0 }}
-                    whileInView={{ width: `${skill.proficiency}%` }}
-                    transition={{
-                      duration: 2,
-                      delay: index * 0.2,
-                      ease: 'easeOut',
-                    }}
-                  >
-                    {/* Shine effect */}
+                  {/* Progress bar */}
+                  <div className="relative h-3 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">
+                    {/* Animated fill */}
                     <motion.div
-                      className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent"
-                      animate={{ x: ['-100%', '100%'] }}
-                      transition={{ duration: 1, repeat: Infinity, delay: index * 0.1 }}
-                    />
-                  </motion.div>
+                      className="absolute inset-y-0 left-0 rounded-full"
+                      style={{
+                        backgroundColor: color,
+                      }}
+                      initial={{ width: 0 }}
+                      whileInView={{
+                        width: `${skill.proficiency}%`,
+                      }}
+                      viewport={{ once: true }}
+                      transition={{
+                        duration: 2,
+                        delay: index * 0.2,
+                        ease: 'easeOut',
+                      }}
+                    >
+                      {/* Shine effect */}
+                      <motion.div
+                        className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent"
+                        animate={{
+                          x: ['-100%', '100%'],
+                        }}
+                        transition={{
+                          duration: 1,
+                          repeat: Infinity,
+                          delay: index * 0.1,
+                        }}
+                      />
+                    </motion.div>
 
-                  {/* Glow effect */}
-                  <motion.div
-                    className="absolute inset-0"
-                    style={{
-                      boxShadow: `0 0 20px ${skill.color}`,
-                    }}
-                    animate={{ opacity: [0, 1, 0] }}
-                    transition={{ duration: 2, repeat: Infinity }}
-                  />
-                </div>
-              </motion.div>
-            );
-          })}
-        </div>
+                    {/* Glow effect */}
+                    <motion.div
+                      className="absolute inset-0 pointer-events-none"
+                      style={{
+                        boxShadow: `0 0 20px ${color}`,
+                      }}
+                      animate={{
+                        opacity: [0, 1, 0],
+                      }}
+                      transition={{
+                        duration: 2,
+                        repeat: Infinity,
+                      }}
+                    />
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </section>
   );

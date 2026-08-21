@@ -25,14 +25,17 @@ export const UPLOAD_PATHS = {
 // Maximum file size (5MB)
 export const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
-// Allowed file types
+// Allowed image types
 export const ALLOWED_IMAGE_TYPES = [
   'image/jpeg',
+  'image/jpg',
   'image/png',
   'image/webp',
   'image/gif',
+  'image/svg+xml',
 ];
 
+// Allowed document types
 export const ALLOWED_DOCUMENT_TYPES = [
   'application/pdf',
   'application/msword',
@@ -46,7 +49,7 @@ export const ALLOWED_FILE_TYPES = [
 ];
 
 // Function to ensure all upload directories exist
-export const ensureUploadDirectories = () => {
+export const ensureUploadDirectories = (): void => {
   // Loop through all upload paths
   Object.values(UPLOAD_PATHS).forEach((dir) => {
     // Create directory if it doesn't exist
@@ -80,4 +83,17 @@ export const generateUniqueFilename = (originalName: string): string => {
   
   // Return unique filename
   return `${timestamp}-${randomString}${extension}`;
+};
+
+// Export default object with all functions
+export default {
+  UPLOAD_DIR,
+  UPLOAD_PATHS,
+  MAX_FILE_SIZE,
+  ALLOWED_IMAGE_TYPES,
+  ALLOWED_DOCUMENT_TYPES,
+  ALLOWED_FILE_TYPES,
+  ensureUploadDirectories,
+  getFileUrl,
+  generateUniqueFilename,
 };

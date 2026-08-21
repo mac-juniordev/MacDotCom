@@ -1,28 +1,73 @@
 // ============================================
 // TESTIMONIAL ROUTES
-// Public and admin routes for testimonials
+// Public can submit reviews
+// Admin can manage testimonials
 // ============================================
 
 import express from 'express';
+
 import {
   getTestimonials,
   getAllTestimonials,
   createTestimonial,
   updateTestimonial,
+  togglePublish,
   deleteTestimonial,
 } from '../controllers/testimonialController';
-import { protect, isOwner } from '../middleware/authMiddleware';
-import { uploadSingle } from '../middleware/uploadMiddleware';
+
+import {
+  protect,
+  isOwner,
+} from '../middleware/authMiddleware';
 
 const router = express.Router();
 
-// Public routes
+// ============================================
+// PUBLIC ROUTES
+// ============================================
+
+// Get published testimonials
 router.get('/', getTestimonials);
 
-// Admin routes
-router.get('/all', protect, isOwner, getAllTestimonials);
-router.post('/', protect, isOwner, uploadSingle('avatar'), createTestimonial);
-router.put('/:id', protect, isOwner, uploadSingle('avatar'), updateTestimonial);
-router.delete('/:id', protect, isOwner, deleteTestimonial);
+// Submit a testimonial
+// Automatically published by the controller
+router.post('/', createTestimonial);
+
+// ============================================
+// ADMIN ROUTES
+// ============================================
+
+// Get all testimonials
+// Includes published, unpublished, visible and hidden
+router.get(
+  '/all',
+  protect,
+  isOwner,
+  getAllTestimonials
+);
+
+// Update testimonial
+router.put(
+  '/:id',
+  protect,
+  isOwner,
+  updateTestimonial
+);
+
+// Toggle published/unpublished status
+router.patch(
+  '/:id/toggle',
+  protect,
+  isOwner,
+  togglePublish
+);
+
+// Delete testimonial
+router.delete(
+  '/:id',
+  protect,
+  isOwner,
+  deleteTestimonial
+);
 
 export default router;

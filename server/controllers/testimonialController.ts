@@ -1,42 +1,107 @@
 // ============================================
 // TESTIMONIAL CONTROLLER
 // Manages client testimonials
+// Auto-publish reviews + admin moderation
 // ============================================
 
 import { Request, Response } from 'express';
 import Testimonial from '../models/Testimonial';
 import { successResponse, errorResponse } from '../utils/apiResponse';
 
-// Get all testimonials (public)
-export const getTestimonials = async (req: Request, res: Response): Promise<void> => {
-  try {
-    // Find visible testimonials sorted by order
-    const testimonials = await Testimonial.find({ isVisible: true }).sort({ order: 1 });
+// ============================================
+// GET PUBLISHED TESTIMONIALS
+// Public
+// ============================================
 
-    // Send testimonials
-    successResponse(res, 'Testimonials fetched successfully', testimonials, 200);
+export const getTestimonials = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    // Find visible and published testimonials
+    const testimonials = await Testimonial.find({
+      isVisible: true,
+      isPublished: true,
+    })
+      .sort({ createdAt: -1 })
+      .limit(20);
+
+    successResponse(
+      res,
+      'Testimonials fetched successfully',
+      testimonials,
+      200
+    );
   } catch (error) {
-    errorResponse(res, 'Failed to fetch testimonials', 500, error);
+    errorResponse(
+      res,
+      'Failed to fetch testimonials',
+      500,
+      error
+    );
   }
 };
 
-// Get all testimonials including hidden (admin only)
-export const getAllTestimonials = async (req: Request, res: Response): Promise<void> => {
-  try {
-    // Find all testimonials sorted by order
-    const testimonials = await Testimonial.find().sort({ order: 1 });
+// ============================================
+// GET ALL TESTIMONIALS
+// Admin
+// Includes unpublished and hidden testimonials
+// ============================================
 
-    // Send testimonials
-    successResponse(res, 'All testimonials fetched successfully', testimonials, 200);
+export const getAllTestimonials = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const testimonials = await Testimonial.find().sort({
+      createdAt: -1,
+    });
+
+    successResponse(
+      res,
+      'All testimonials fetched successfully',
+      testimonials,
+      200
+    );
   } catch (error) {
-    errorResponse(res, 'Failed to fetch testimonials', 500, error);
+    errorResponse(
+      res,
+      'Failed to fetch testimonials',
+      500,
+      error
+    );
   }
 };
 
-// Create testimonial (admin only)
-export const createTestimonial = async (req: Request, res: Response): Promise<void> => {
+// ============================================
+// CREATE TESTIMONIAL
+// Public
+// Automatically publishes review
+// ============================================
+
+export const createTestimonial = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
-    const testimonialData = req.body;
+    const {
+      name,
+      content,
+      rating,
+      company,
+      role,
+    } = req.body;
+
+    // Prepare testimonial data
+    const testimonialData: Record<string, any> = {
+      name,
+      content,
+      rating: rating || 5,
+      company: company || null,
+      role: role || 'Client',
+      isVisible: true,
+      isPublished: true,
+    };
 
     // Add avatar if uploaded
     if (req.file) {
@@ -46,20 +111,39 @@ export const createTestimonial = async (req: Request, res: Response): Promise<vo
     // Create testimonial
     const testimonial = await Testimonial.create(testimonialData);
 
-    // Send created testimonial
-    successResponse(res, 'Testimonial created successfully', testimonial, 201);
-  } catch (error) {
-    errorResponse(res, 'Failed to create testimonial', 500, error);
+    successResponse(
+      res,
+      'Review submitted successfully',
+      testimonial,
+      201
+    );
+  } catch (error: any) {
+    errorResponse(
+      res,
+      error.message || 'Failed to submit review',
+      500,
+      error
+    );
   }
 };
 
-// Update testimonial (admin only)
-export const updateTestimonial = async (req: Request, res: Response): Promise<void> => {
+// ============================================
+// UPDATE TESTIMONIAL
+// Admin
+// ============================================
+
+export const updateTestimonial = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
     const { id } = req.params;
-    const testimonialData = req.body;
 
-    // Add avatar if uploaded
+    const testimonialData: Record<string, any> = {
+      ...req.body,
+    };
+
+    // Add new avatar if uploaded
     if (req.file) {
       testimonialData.avatar = `/uploads/testimonials/${req.file.filename}`;
     }
@@ -68,24 +152,92 @@ export const updateTestimonial = async (req: Request, res: Response): Promise<vo
     const testimonial = await Testimonial.findByIdAndUpdate(
       id,
       testimonialData,
-      { new: true, runValidators: true }
+      {
+        new: true,
+        runValidators: true,
+      }
     );
 
     // Check if testimonial exists
     if (!testimonial) {
-      errorResponse(res, 'Testimonial not found', 404);
+      errorResponse(
+        res,
+        'Testimonial not found',
+        404
+      );
       return;
     }
 
-    // Send updated testimonial
-    successResponse(res, 'Testimonial updated successfully', testimonial, 200);
+    successResponse(
+      res,
+      'Testimonial updated successfully',
+      testimonial,
+      200
+    );
   } catch (error) {
-    errorResponse(res, 'Failed to update testimonial', 500, error);
+    errorResponse(
+      res,
+      'Failed to update testimonial',
+      500,
+      error
+    );
   }
 };
 
-// Delete testimonial (admin only)
-export const deleteTestimonial = async (req: Request, res: Response): Promise<void> => {
+// ============================================
+// TOGGLE PUBLISH STATUS
+// Admin
+// ============================================
+
+export const togglePublish = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const { id } = req.params;
+
+    // Find testimonial
+    const testimonial = await Testimonial.findById(id);
+
+    if (!testimonial) {
+      errorResponse(
+        res,
+        'Testimonial not found',
+        404
+      );
+      return;
+    }
+
+    // Toggle publish state
+    testimonial.isPublished = !testimonial.isPublished;
+
+    await testimonial.save();
+
+    successResponse(
+      res,
+      'Review status updated successfully',
+      testimonial,
+      200
+    );
+  } catch (error) {
+    errorResponse(
+      res,
+      'Failed to update review status',
+      500,
+      error
+    );
+  }
+};
+
+// ============================================
+// DELETE TESTIMONIAL
+// Admin
+// ============================================
+
+export const deleteTestimonial = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
     const { id } = req.params;
 
@@ -94,13 +246,26 @@ export const deleteTestimonial = async (req: Request, res: Response): Promise<vo
 
     // Check if testimonial exists
     if (!testimonial) {
-      errorResponse(res, 'Testimonial not found', 404);
+      errorResponse(
+        res,
+        'Testimonial not found',
+        404
+      );
       return;
     }
 
-    // Send success response
-    successResponse(res, 'Testimonial deleted successfully', null, 200);
+    successResponse(
+      res,
+      'Review deleted successfully',
+      null,
+      200
+    );
   } catch (error) {
-    errorResponse(res, 'Failed to delete testimonial', 500, error);
+    errorResponse(
+      res,
+      'Failed to delete review',
+      500,
+      error
+    );
   }
 };

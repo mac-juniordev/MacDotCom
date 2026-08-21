@@ -1,6 +1,6 @@
 // ============================================
-// TESTIMONIAL MODEL
-// Represents client/customer testimonials
+// TESTIMONIAL MODEL - UPDATED
+// Auto-publish reviews like Play Store
 // ============================================
 
 import mongoose, { Schema, Document } from 'mongoose';
@@ -8,13 +8,14 @@ import mongoose, { Schema, Document } from 'mongoose';
 // Interface for Testimonial document
 export interface ITestimonial extends Document {
   name: string;
-  role: string;
+  role?: string;
   company?: string;
   content: string;
   avatar?: string;
   rating: number;
   order: number;
   isVisible: boolean;
+  isPublished: boolean;
 }
 
 // Testimonial Schema
@@ -28,7 +29,7 @@ const testimonialSchema = new Schema<ITestimonial>(
     },
     role: {
       type: String,
-      required: [true, 'Role is required'],
+      default: 'Client',
       trim: true,
       maxlength: [100, 'Role cannot exceed 100 characters'],
     },
@@ -40,7 +41,7 @@ const testimonialSchema = new Schema<ITestimonial>(
     },
     content: {
       type: String,
-      required: [true, 'Testimonial content is required'],
+      required: [true, 'Review content is required'],
       maxlength: [1000, 'Content cannot exceed 1000 characters'],
     },
     avatar: {
@@ -60,6 +61,10 @@ const testimonialSchema = new Schema<ITestimonial>(
     isVisible: {
       type: Boolean,
       default: true,
+    },
+    isPublished: {
+      type: Boolean,
+      default: true, // Auto-publish like Play Store
     },
   },
   {

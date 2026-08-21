@@ -1,45 +1,24 @@
 // ============================================
 // ADMIN TOP BAR
-// Animated + real-time notifications
-// React-safe effects
+// Notifications, clock, navigation and search
 // ============================================
 
-import {
-  useState,
-  useEffect,
-  useRef,
-  useCallback,
-} from 'react';
-
-import {
-  motion,
-  AnimatePresence,
-} from 'framer-motion';
-
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Menu,
   Bell,
   Search,
   Mail,
   MailOpen,
+  Loader2,
 } from 'lucide-react';
-
-import { Link } from 'react-router-dom';
-
+import { Link, useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
-
 import axios from 'axios';
 
-// ============================================
-// ENABLE DAYJS RELATIVE TIME
-// ============================================
-
 dayjs.extend(relativeTime);
-
-// ============================================
-// TYPES
-// ============================================
 
 interface TopBarProps {
   sidebarCollapsed: boolean;
@@ -56,26 +35,23 @@ interface Notification {
   createdAt: string;
 }
 
-// ============================================
-// API
-// ============================================
+interface MessagesResponse {
+  success?: boolean;
+  data?: Notification[];
+  message?: string;
+}
 
-const API_URL = 'http://localhost:5000/api';
+const API_URL =
+  import.meta.env.VITE_API_URL?.replace(/\/$/, '') ||
+  'http://localhost:5000/api';
 
-// ============================================
-// TOP BAR
-// ============================================
+const POLL_INTERVAL = 60_000;
 
 const TopBar = ({
+  sidebarCollapsed,
   toggleSidebar,
 }: TopBarProps) => {
-  // ============================================
-  // STATE
-  // ============================================
-
-  const [currentTime, setCurrentTime] = useState(
-    () => dayjs()
-  );
+  const [currentTime, setCurrentTime] = useState(() => dayjs());
 
   const [notifications, setNotifications] = useState<
     Notification[]
@@ -84,38 +60,31 @@ const TopBar = ({
   const [showNotifications, setShowNotifications] =
     useState(false);
 
-  const [unreadCount, setUnreadCount] = useState(0);
-
-  const [loadingNotifications, setLoadingNotifications] =
+  const [isLoadingNotifications, setIsLoadingNotifications] =
     useState(false);
 
-  const notificationRef =
-    useRef<HTMLDivElement>(null);
+  const notificationRef = useRef<HTMLDivElement>(null);
+  const pollingRef = useRef(false);
+
+  const navigate = useNavigate();
 
   // ============================================
-  // GREETING
-  // Derived directly from currentTime.
-  // No extra state or effect needed.
+  // Greeting
+  // Derived directly from current time.
+  // No extra state/effect required.
   // ============================================
 
-  const getGreeting = () => {
-    const hour = currentTime.hour();
+  const hour = currentTime.hour();
 
-    if (hour < 12) {
-      return 'Good Morning';
-    }
-
-    if (hour < 17) {
-      return 'Good Afternoon';
-    }
-
-    return 'Good Evening';
-  };
-
-  const greeting = getGreeting();
+  const greeting =
+    hour < 12
+      ? 'Good Morning'
+      : hour < 17
+        ? 'Good Afternoon'
+        : 'Good Evening';
 
   // ============================================
-  // CLOCK
+  // Clock
   // ============================================
 
   useEffect(() => {
@@ -129,95 +98,129 @@ const TopBar = ({
   }, []);
 
   // ============================================
-  // FETCH NOTIFICATIONS
+  // Authentication headers
   // ============================================
 
-  const fetchNotifications = useCallback(
-    async () => {
-      const token = localStorage.getItem('token');
+  const getAuthConfig = useCallback(() => {
+    const token = localStorage.getItem('token');
 
-      if (!token) {
-        setNotifications([]);
-        setUnreadCount(0);
-        return;
+    if (!token) {
+      return null;
+    }
+
+    return {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    };
+  }, []);
+
+  // ============================================
+  // Fetch notifications
+  // ============================================
+
+  const fetchNotifications = useCallback(async () => {
+    // Prevent overlapping requests.
+    if (pollingRef.current) {
+      return;
+    }
+
+    const config = getAuthConfig();
+
+    if (!config) {
+      setNotifications([]);
+      return;
+    }
+
+    pollingRef.current = true;
+    setIsLoadingNotifications(true);
+
+    try {
+      const response = await axios.get<MessagesResponse>(
+        `${API_URL}/messages`,
+        {
+          ...config,
+          params: {
+            status: 'unread',
+            limit: 10,
+          },
+        }
+      );
+
+      if (response.data?.success) {
+        setNotifications(response.data.data ?? []);
       }
-
-      try {
-        setLoadingNotifications(true);
-
-        const response = await axios.get(
-          `${API_URL}/messages?status=unread`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-
-        if (response.data?.success) {
-          const unreadMessages =
-            response.data?.data || [];
-
-          setNotifications(
-            unreadMessages.slice(0, 10)
-          );
-
-          setUnreadCount(
-            unreadMessages.length
+    } catch (error: unknown) {
+      // Keep notification errors quiet in production.
+      if (import.meta.env.DEV) {
+        if (axios.isAxiosError(error)) {
+          console.error(
+            'Failed to fetch notifications:',
+            error.response?.data || error.message
           );
         } else {
-          setNotifications([]);
-          setUnreadCount(0);
+          console.error(
+            'Failed to fetch notifications:',
+            error
+          );
         }
-      } catch (error) {
-        console.error(
-          'Failed to fetch notifications:',
-          error
-        );
-      } finally {
-        setLoadingNotifications(false);
       }
-    },
-    []
-  );
+    } finally {
+      pollingRef.current = false;
+      setIsLoadingNotifications(false);
+    }
+  }, [getAuthConfig]);
 
   // ============================================
-  // INITIAL NOTIFICATION LOAD
-  // + AUTO REFRESH
+  // Initial notification fetch
   //
-  // setTimeout prevents the React lint rule from
-  // treating the fetch call as a synchronous
-  // state update inside the effect.
+  // setTimeout prevents React's
+  // set-state-in-effect warning while still
+  // fetching immediately after mount.
   // ============================================
 
   useEffect(() => {
-    const initialLoad = window.setTimeout(() => {
+    const timeout = window.setTimeout(() => {
       void fetchNotifications();
     }, 0);
 
-    const interval = window.setInterval(() => {
-      void fetchNotifications();
-    }, 30000);
-
     return () => {
-      window.clearTimeout(initialLoad);
-      window.clearInterval(interval);
+      window.clearTimeout(timeout);
     };
   }, [fetchNotifications]);
 
   // ============================================
-  // CLOSE DROPDOWN WHEN CLICKING OUTSIDE
+  // Polling + window focus
   // ============================================
 
   useEffect(() => {
-    const handleClickOutside = (
-      event: MouseEvent
-    ) => {
+    const interval = window.setInterval(() => {
+      void fetchNotifications();
+    }, POLL_INTERVAL);
+
+    const handleFocus = () => {
+      void fetchNotifications();
+    };
+
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [fetchNotifications]);
+
+  // ============================================
+  // Close dropdown when clicking outside
+  // ============================================
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+
       if (
         notificationRef.current &&
-        !notificationRef.current.contains(
-          event.target as Node
-        )
+        !notificationRef.current.contains(target)
       ) {
         setShowNotifications(false);
       }
@@ -237,182 +240,161 @@ const TopBar = ({
   }, []);
 
   // ============================================
-  // MARK SINGLE NOTIFICATION AS READ
+  // Close dropdown with Escape
+  // ============================================
+
+  useEffect(() => {
+    if (!showNotifications) {
+      return;
+    }
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setShowNotifications(false);
+      }
+    };
+
+    document.addEventListener(
+      'keydown',
+      handleEscape
+    );
+
+    return () => {
+      document.removeEventListener(
+        'keydown',
+        handleEscape
+      );
+    };
+  }, [showNotifications]);
+
+  // ============================================
+  // Open messages
+  // ============================================
+
+  const handleNotificationClick = () => {
+    setShowNotifications(false);
+    navigate('/command-center/messages');
+  };
+
+  // ============================================
+  // Mark one notification as read
   // ============================================
 
   const handleMarkAsRead = async (
+    event: React.MouseEvent<HTMLButtonElement>,
     id: string
   ) => {
+    event.stopPropagation();
+
+    const config = getAuthConfig();
+
+    if (!config) {
+      return;
+    }
+
     try {
-      const token =
-        localStorage.getItem('token');
-
-      if (!token) {
-        return;
-      }
-
       await axios.patch(
         `${API_URL}/messages/${id}/status`,
-        {
-          status: 'read',
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
+        { status: 'read' },
+        config
       );
 
-      // Remove from current notification list
-      setNotifications((previous) =>
-        previous.filter(
-          (notification) =>
-            notification._id !== id
+      setNotifications((current) =>
+        current.filter(
+          (notification) => notification._id !== id
         )
       );
-
-      // Reduce badge count
-      setUnreadCount((previous) =>
-        Math.max(0, previous - 1)
-      );
-    } catch (error) {
-      console.error(
-        'Failed to mark notification as read:',
-        error
-      );
+    } catch (error: unknown) {
+      if (import.meta.env.DEV) {
+        console.error(
+          'Failed to mark notification as read:',
+          error
+        );
+      }
     }
   };
 
   // ============================================
-  // MARK ALL AS READ
+  // Mark all notifications as read
   // ============================================
 
   const handleMarkAllAsRead = async () => {
+    const config = getAuthConfig();
+
+    if (!config || notifications.length === 0) {
+      return;
+    }
+
+    const currentNotifications = [...notifications];
+
     try {
-      const token =
-        localStorage.getItem('token');
-
-      if (!token) {
-        return;
-      }
-
-      if (notifications.length === 0) {
-        return;
-      }
-
       await Promise.all(
-        notifications.map(
-          (notification) =>
-            axios.patch(
-              `${API_URL}/messages/${notification._id}/status`,
-              {
-                status: 'read',
-              },
-              {
-                headers: {
-                  Authorization: `Bearer ${token}`,
-                },
-              }
-            )
+        currentNotifications.map((notification) =>
+          axios.patch(
+            `${API_URL}/messages/${notification._id}/status`,
+            { status: 'read' },
+            config
+          )
         )
       );
 
       setNotifications([]);
-      setUnreadCount(0);
-    } catch (error) {
-      console.error(
-        'Failed to mark all notifications as read:',
-        error
-      );
+    } catch (error: unknown) {
+      if (import.meta.env.DEV) {
+        console.error(
+          'Failed to mark all notifications as read:',
+          error
+        );
+      }
 
-      // Refresh from server if something failed
-      window.setTimeout(() => {
-        void fetchNotifications();
-      }, 0);
+      void fetchNotifications();
     }
   };
 
   // ============================================
-  // TOGGLE NOTIFICATIONS
+  // Derived unread count
   // ============================================
 
-  const toggleNotifications = () => {
-    setShowNotifications(
-      (previous) => !previous
-    );
-  };
+  const unreadCount = notifications.length;
 
   // ============================================
-  // RENDER
+  // Render
   // ============================================
 
   return (
-    <header
-      className="
-        h-16
-        bg-gray-900
-        border-b
-        border-gray-800
-        px-4
-        sm:px-6
-        flex
-        items-center
-        justify-between
-        flex-shrink-0
-      "
-    >
-      {/* ======================================
-          LEFT SIDE
-      ====================================== */}
+    <header className="relative z-40 bg-gray-900 border-b border-gray-800 px-4 sm:px-6 py-4 flex items-center justify-between">
+      {/* ============================================
+          Left section
+          ============================================ */}
 
-      <div
-        className="
-          flex
-          items-center
-          gap-3
-          sm:gap-4
-          min-w-0
-        "
-      >
-        {/* ====================================
-            SIDEBAR TOGGLE
-        ==================================== */}
+      <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+        {/* Sidebar toggle */}
 
         <motion.button
           type="button"
           onClick={toggleSidebar}
-          whileHover={{
-            scale: 1.08,
-          }}
-          whileTap={{
-            scale: 0.92,
-          }}
-          aria-label="Toggle sidebar"
-          className="
-            p-2
-            hover:bg-gray-800
-            rounded-lg
-            transition-colors
-            flex-shrink-0
-          "
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          aria-label={
+            sidebarCollapsed
+              ? 'Expand sidebar'
+              : 'Collapse sidebar'
+          }
+          aria-expanded={!sidebarCollapsed}
+          className="p-2 hover:bg-gray-800 rounded-lg transition-colors shrink-0"
         >
           <Menu
-            className="
-              w-5
-              h-5
-              text-gray-400
-            "
+            className="w-5 h-5 text-gray-400"
+            aria-hidden="true"
           />
         </motion.button>
 
-        {/* ====================================
-            GREETING
-        ==================================== */}
+        {/* Greeting */}
 
         <motion.div
           initial={{
             opacity: 0,
-            y: -20,
+            y: -10,
           }}
           animate={{
             opacity: 1,
@@ -420,80 +402,42 @@ const TopBar = ({
           }}
           className="min-w-0"
         >
-          <h1
-            className="
-              text-base
-              sm:text-xl
-              font-bold
-              text-white
-              truncate
-            "
-          >
+          <h1 className="text-base sm:text-xl font-bold text-white truncate">
             {greeting}, Mac
           </h1>
 
-          <p
-            className="
-              text-xs
-              sm:text-sm
-              text-gray-400
-              truncate
-            "
-          >
-            {currentTime.format(
-              'dddd, MMMM D, YYYY'
-            )}
+          <p className="text-xs sm:text-sm text-gray-400 truncate">
+            {currentTime.format('dddd, MMMM D, YYYY')}
           </p>
         </motion.div>
       </div>
 
-      {/* ======================================
-          RIGHT SIDE
-      ====================================== */}
+      {/* ============================================
+          Right section
+          ============================================ */}
 
-      <div
-        className="
-          flex
-          items-center
-          gap-2
-          sm:gap-4
-          flex-shrink-0
-        "
-      >
-        {/* ====================================
-            CLOCK
-        ==================================== */}
+      <div className="flex items-center gap-2 sm:gap-4">
+        {/* Clock */}
 
         <motion.div
-          className="
-            text-right
-            hidden
-            md:block
-          "
+          className="text-right hidden md:block"
           animate={{
             opacity: [0.8, 1, 0.8],
           }}
           transition={{
             duration: 2,
             repeat: Infinity,
+            ease: 'easeInOut',
           }}
         >
-          <span
-            className="
-              text-xl
-              lg:text-2xl
-              font-mono
-              font-bold
-              text-green-500
-            "
-          >
+          <span className="text-lg lg:text-2xl font-mono font-bold text-green-500">
             {currentTime.format('HH:mm:ss')}
           </span>
         </motion.div>
 
-        {/* ====================================
-            NOTIFICATIONS
-        ==================================== */}
+        {/* ============================================
+            Notifications
+            ============================================ */}
 
         <div
           className="relative"
@@ -501,65 +445,34 @@ const TopBar = ({
         >
           <motion.button
             type="button"
-            onClick={toggleNotifications}
-            whileHover={{
-              scale: 1.1,
-            }}
-            whileTap={{
-              scale: 0.9,
-            }}
-            aria-label="Notifications"
-            aria-expanded={
-              showNotifications
+            onClick={() =>
+              setShowNotifications(
+                (current) => !current
+              )
             }
-            className="
-              relative
-              p-2
-              hover:bg-gray-800
-              rounded-lg
-              transition-colors
-            "
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            aria-label={`Notifications${
+              unreadCount > 0
+                ? `, ${unreadCount} unread`
+                : ''
+            }`}
+            aria-expanded={showNotifications}
+            aria-haspopup="true"
+            className="relative p-2 hover:bg-gray-800 rounded-lg transition-colors"
           >
             <Bell
-              className="
-                w-5
-                h-5
-                text-gray-400
-              "
+              className="w-5 h-5 text-gray-400"
+              aria-hidden="true"
             />
-
-            {/* Unread Badge */}
 
             <AnimatePresence>
               {unreadCount > 0 && (
                 <motion.span
-                  initial={{
-                    scale: 0,
-                  }}
-                  animate={{
-                    scale: 1,
-                  }}
-                  exit={{
-                    scale: 0,
-                  }}
-                  className="
-                    absolute
-                    -top-1
-                    -right-1
-                    min-w-5
-                    h-5
-                    px-1
-                    bg-red-500
-                    text-white
-                    text-[10px]
-                    font-bold
-                    rounded-full
-                    flex
-                    items-center
-                    justify-center
-                    border-2
-                    border-gray-900
-                  "
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  exit={{ scale: 0 }}
+                  className="absolute -top-1 -right-1 min-w-5 h-5 px-1 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center"
                 >
                   {unreadCount > 9
                     ? '9+'
@@ -569,17 +482,15 @@ const TopBar = ({
             </AnimatePresence>
           </motion.button>
 
-          {/* ==================================
-              NOTIFICATION DROPDOWN
-          ================================== */}
+          {/* Notification dropdown */}
 
           <AnimatePresence>
             {showNotifications && (
               <motion.div
                 initial={{
                   opacity: 0,
-                  y: 15,
-                  scale: 0.95,
+                  y: 10,
+                  scale: 0.98,
                 }}
                 animate={{
                   opacity: 1,
@@ -588,66 +499,30 @@ const TopBar = ({
                 }}
                 exit={{
                   opacity: 0,
-                  y: 15,
-                  scale: 0.95,
+                  y: 10,
+                  scale: 0.98,
                 }}
                 transition={{
                   duration: 0.2,
                 }}
-                className="
-                  absolute
-                  right-0
-                  mt-2
-                  w-[calc(100vw-2rem)]
-                  sm:w-96
-                  max-w-96
-                  bg-gray-900
-                  rounded-2xl
-                  border
-                  border-gray-800
-                  shadow-2xl
-                  overflow-hidden
-                  z-[100]
-                "
+                role="dialog"
+                aria-label="Notifications"
+                className="fixed sm:absolute right-2 sm:right-0 top-20 sm:top-auto sm:mt-2 w-[calc(100vw-1rem)] sm:w-96 max-w-96 bg-gray-900 rounded-2xl border border-gray-800 shadow-2xl overflow-hidden z-50"
               >
-                {/* ==================================
-                    DROPDOWN HEADER
-                ================================== */}
+                {/* Header */}
 
-                <div
-                  className="
-                    p-4
-                    border-b
-                    border-gray-800
-                    flex
-                    items-center
-                    justify-between
-                    gap-4
-                  "
-                >
+                <div className="p-4 border-b border-gray-800 flex items-center justify-between gap-4">
                   <div>
-                    <h3
-                      className="
-                        font-bold
-                        text-white
-                      "
-                    >
+                    <h3 className="font-bold text-white">
                       Notifications
                     </h3>
 
                     {unreadCount > 0 && (
-                      <p
-                        className="
-                          text-xs
-                          text-gray-500
-                          mt-1
-                        "
-                      >
+                      <p className="text-xs text-gray-500 mt-1">
                         {unreadCount}{' '}
-                        unread{' '}
                         {unreadCount === 1
-                          ? 'message'
-                          : 'messages'}
+                          ? 'unread message'
+                          : 'unread messages'}
                       </p>
                     )}
                   </div>
@@ -655,307 +530,139 @@ const TopBar = ({
                   {unreadCount > 0 && (
                     <button
                       type="button"
-                      onClick={
-                        handleMarkAllAsRead
-                      }
-                      disabled={
-                        loadingNotifications
-                      }
-                      className="
-                        text-xs
-                        text-green-500
-                        hover:text-green-400
-                        disabled:opacity-50
-                        whitespace-nowrap
-                      "
+                      onClick={handleMarkAllAsRead}
+                      className="text-xs text-green-500 hover:text-green-400 transition-colors whitespace-nowrap"
                     >
                       Mark all as read
                     </button>
                   )}
                 </div>
 
-                {/* ==================================
-                    NOTIFICATION LIST
-                ================================== */}
+                {/* Notifications list */}
 
-                <div
-                  className="
-                    max-h-96
-                    overflow-y-auto
-                  "
-                >
-                  {/* Loading */}
-
-                  {loadingNotifications &&
+                <div className="max-h-96 overflow-y-auto">
+                  {isLoadingNotifications &&
                   notifications.length === 0 ? (
-                    <div
-                      className="
-                        p-8
-                        text-center
-                      "
-                    >
-                      <motion.div
-                        animate={{
-                          rotate: 360,
-                        }}
-                        transition={{
-                          duration: 1,
-                          repeat: Infinity,
-                          ease: 'linear',
-                        }}
-                        className="
-                          inline-block
-                        "
-                      >
-                        <Bell
-                          className="
-                            w-8
-                            h-8
-                            text-green-500
-                          "
-                        />
-                      </motion.div>
+                    <div className="p-8 text-center">
+                      <Loader2
+                        className="w-8 h-8 text-green-500 mx-auto animate-spin"
+                        aria-hidden="true"
+                      />
 
-                      <p
-                        className="
-                          text-gray-400
-                          mt-4
-                        "
-                      >
-                        Loading
-                        notifications...
+                      <p className="text-gray-400 text-sm mt-3">
+                        Loading notifications...
                       </p>
                     </div>
-                  ) : notifications.length ===
-                    0 ? (
-                    /* Empty State */
+                  ) : notifications.length === 0 ? (
+                    <div className="p-8 text-center">
+                      <Bell
+                        className="w-12 h-12 text-gray-600 mx-auto mb-4"
+                        aria-hidden="true"
+                      />
 
-                    <div
-                      className="
-                        p-8
-                        text-center
-                      "
-                    >
-                      <motion.div
-                        animate={{
-                          scale: [
-                            1,
-                            1.15,
-                            1,
-                          ],
-                        }}
-                        transition={{
-                          duration: 2,
-                          repeat: Infinity,
-                        }}
-                      >
-                        <Bell
-                          className="
-                            w-12
-                            h-12
-                            text-gray-600
-                            mx-auto
-                            mb-4
-                          "
-                        />
-                      </motion.div>
-
-                      <p
-                        className="
-                          text-gray-400
-                        "
-                      >
-                        No new
-                        notifications
+                      <p className="text-gray-400">
+                        No new notifications
                       </p>
 
-                      <p
-                        className="
-                          text-sm
-                          text-gray-500
-                          mt-1
-                        "
-                      >
-                        You're all caught
-                        up!
+                      <p className="text-sm text-gray-500 mt-1">
+                        You&apos;re all caught up.
                       </p>
                     </div>
                   ) : (
-                    /* Notification Items */
-
-                    notifications.map(
-                      (notification) => (
-                        <motion.div
-                          key={
-                            notification._id
+                    notifications.map((notification) => (
+                      <motion.div
+                        key={notification._id}
+                        initial={{
+                          opacity: 0,
+                          x: 20,
+                        }}
+                        animate={{
+                          opacity: 1,
+                          x: 0,
+                        }}
+                        onClick={
+                          handleNotificationClick
+                        }
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(event) => {
+                          if (
+                            event.key === 'Enter' ||
+                            event.key === ' '
+                          ) {
+                            event.preventDefault();
+                            handleNotificationClick();
                           }
-                          initial={{
-                            opacity: 0,
-                            x: 20,
-                          }}
-                          animate={{
-                            opacity: 1,
-                            x: 0,
-                          }}
-                          className="
-                            p-4
-                            border-b
-                            border-gray-800
-                            hover:bg-gray-800/50
-                            transition-colors
-                            group
-                          "
-                        >
-                          <div
-                            className="
-                              flex
-                              items-start
-                              gap-3
-                            "
-                          >
-                            {/* Icon */}
+                        }}
+                        className="p-4 border-b border-gray-800 hover:bg-gray-800/50 focus:bg-gray-800/50 cursor-pointer group transition-colors"
+                      >
+                        <div className="flex items-start gap-3">
+                          {/* Icon */}
 
-                            <div
-                              className="
-                                w-10
-                                h-10
-                                rounded-full
-                                bg-green-500/10
-                                flex
-                                items-center
-                                justify-center
-                                flex-shrink-0
-                              "
-                            >
-                              <Mail
-                                className="
-                                  w-5
-                                  h-5
-                                  text-green-500
-                                "
-                              />
-                            </div>
-
-                            {/* Content */}
-
-                            <div
-                              className="
-                                flex-1
-                                min-w-0
-                              "
-                            >
-                              <div
-                                className="
-                                  flex
-                                  items-start
-                                  justify-between
-                                  gap-2
-                                "
-                              >
-                                <p
-                                  className="
-                                    text-white
-                                    font-medium
-                                    truncate
-                                  "
-                                >
-                                  {notification.name ||
-                                    'New message'}
-                                </p>
-
-                                <span
-                                  className="
-                                    text-xs
-                                    text-gray-500
-                                    flex-shrink-0
-                                  "
-                                >
-                                  {dayjs(
-                                    notification.createdAt
-                                  ).fromNow()}
-                                </span>
-                              </div>
-
-                              <p
-                                className="
-                                  text-sm
-                                  text-gray-400
-                                  truncate
-                                "
-                              >
-                                {notification.subject ||
-                                  'No subject'}
-                              </p>
-
-                              <p
-                                className="
-                                  text-xs
-                                  text-gray-500
-                                  truncate
-                                  mt-1
-                                "
-                              >
-                                {
-                                  notification.message
-                                }
-                              </p>
-                            </div>
-
-                            {/* Mark Read */}
-
-                            <button
-                              type="button"
-                              onClick={() =>
-                                handleMarkAsRead(
-                                  notification._id
-                                )
-                              }
-                              title="Mark as read"
-                              aria-label={`Mark message from ${notification.name} as read`}
-                              className="
-                                opacity-0
-                                group-hover:opacity-100
-                                focus:opacity-100
-                                transition-opacity
-                                p-1
-                                hover:bg-gray-700
-                                rounded
-                                flex-shrink-0
-                              "
-                            >
-                              <MailOpen
-                                className="
-                                  w-4
-                                  h-4
-                                  text-gray-400
-                                "
-                              />
-                            </button>
+                          <div className="w-10 h-10 rounded-full bg-green-500/10 flex items-center justify-center shrink-0">
+                            <Mail
+                              className="w-5 h-5 text-green-500"
+                              aria-hidden="true"
+                            />
                           </div>
-                        </motion.div>
-                      )
-                    )
+
+                          {/* Content */}
+
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between gap-2">
+                              <p className="text-white font-medium truncate">
+                                {notification.name}
+                              </p>
+
+                              <span className="text-xs text-gray-500 whitespace-nowrap shrink-0">
+                                {dayjs(
+                                  notification.createdAt
+                                ).fromNow()}
+                              </span>
+                            </div>
+
+                            <p className="text-sm text-gray-400 truncate mt-1">
+                              {notification.subject}
+                            </p>
+
+                            <p className="text-xs text-gray-500 line-clamp-2 mt-1">
+                              {notification.message}
+                            </p>
+                          </div>
+
+                          {/* Mark as read */}
+
+                          <button
+                            type="button"
+                            onClick={(event) =>
+                              handleMarkAsRead(
+                                event,
+                                notification._id
+                              )
+                            }
+                            aria-label={`Mark message from ${notification.name} as read`}
+                            title="Mark as read"
+                            className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100 p-1.5 hover:bg-gray-700 rounded transition-opacity shrink-0"
+                          >
+                            <MailOpen
+                              className="w-4 h-4 text-gray-400"
+                              aria-hidden="true"
+                            />
+                          </button>
+                        </div>
+                      </motion.div>
+                    ))
                   )}
                 </div>
 
-                {/* ==================================
-                    FOOTER
-                ================================== */}
+                {/* Footer */}
 
                 <Link
                   to="/command-center/messages"
                   onClick={() =>
                     setShowNotifications(false)
                   }
-                  className="
-                    block
-                    p-4
-                    text-center
-                    text-sm
-                    text-green-500
-                    hover:bg-gray-800
-                    transition-colors
-                  "
+                  className="block p-4 text-center text-sm text-green-500 hover:bg-gray-800 transition-colors"
                 >
                   View all messages
                 </Link>
@@ -964,51 +671,21 @@ const TopBar = ({
           </AnimatePresence>
         </div>
 
-        {/* ====================================
-            SEARCH
-        ==================================== */}
+        {/* ============================================
+            Search
+            ============================================ */}
 
-        <div
-          className="
-            relative
-            hidden
-            lg:block
-          "
-        >
+        <div className="relative hidden lg:block">
           <Search
-            className="
-              absolute
-              left-3
-              top-1/2
-              -translate-y-1/2
-              w-4
-              h-4
-              text-gray-400
-            "
+            className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
+            aria-hidden="true"
           />
 
           <input
-            type="text"
+            type="search"
             placeholder="Search..."
-            className="
-              w-48
-              xl:w-56
-              pl-10
-              pr-4
-              py-2
-              bg-gray-800
-              border
-              border-transparent
-              rounded-lg
-              text-sm
-              text-white
-              placeholder-gray-400
-              focus:outline-none
-              focus:ring-2
-              focus:ring-green-500
-              focus:border-green-500
-              transition-all
-            "
+            aria-label="Search admin panel"
+            className="pl-10 pr-4 py-2 w-48 xl:w-64 bg-gray-800 rounded-lg text-sm text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 transition-all"
           />
         </div>
       </div>

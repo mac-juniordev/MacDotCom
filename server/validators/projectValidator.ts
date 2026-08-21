@@ -1,13 +1,32 @@
 // ============================================
-// PROJECT VALIDATOR
-// Validates project creation and updates
+// PROJECT VALIDATOR - UPDATED
+// Handles both JSON and FormData
 // ============================================
 
 import { body } from 'express-validator';
 
+// Helper to check if technologies is valid
+const isValidTechnologies = (value: any): boolean => {
+  if (Array.isArray(value)) {
+    return value.length > 0;
+  }
+
+  if (typeof value === 'string') {
+    // Try JSON parse
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) && parsed.length > 0;
+    } catch (error) {
+      // Not JSON, check comma-separated
+      return value.split(',').filter((t: string) => t.trim()).length > 0;
+    }
+  }
+
+  return false;
+};
+
 // Validation rules for creating a project
 export const validateProject = [
-  // Title required
   body('title')
     .trim()
     .notEmpty()
@@ -15,27 +34,17 @@ export const validateProject = [
     .isLength({ max: 100 })
     .withMessage('Title cannot exceed 100 characters'),
 
-  // Description required
   body('description')
     .trim()
     .notEmpty()
     .withMessage('Project description is required')
-    .isLength({ max: 500 })
-    .withMessage('Description cannot exceed 500 characters'),
-
-  // Long description optional
-  body('longDescription')
-    .optional()
-    .trim()
     .isLength({ max: 5000 })
-    .withMessage('Long description cannot exceed 5000 characters'),
+    .withMessage('Description cannot exceed 5000 characters'),
 
-  // Technologies required (must be array)
   body('technologies')
-    .isArray({ min: 1 })
+    .custom(isValidTechnologies)
     .withMessage('At least one technology is required'),
 
-  // Category required
   body('category')
     .trim()
     .notEmpty()
@@ -43,36 +52,30 @@ export const validateProject = [
     .isIn(['web', 'mobile', 'desktop', 'api', 'fullstack', 'other'])
     .withMessage('Invalid category'),
 
-  // Status must be valid
   body('status')
     .optional()
     .isIn(['in-progress', 'completed', 'maintenance', 'archived'])
     .withMessage('Invalid status'),
 
-  // Featured must be boolean
   body('featured')
     .optional()
-    .isBoolean()
+    .custom((value) => {
+      if (typeof value === 'string') {
+        return value === 'true' || value === 'false';
+      }
+      return typeof value === 'boolean';
+    })
     .withMessage('Featured must be true or false'),
 
-  // URLs must be valid if provided
   body('githubUrl')
-    .optional()
-    .trim()
+    .optional({ nullable: true, checkFalsy: true })
     .isURL()
     .withMessage('Invalid GitHub URL'),
 
   body('liveUrl')
-    .optional()
-    .trim()
+    .optional({ nullable: true, checkFalsy: true })
     .isURL()
     .withMessage('Invalid live demo URL'),
-
-  // Order must be number
-  body('order')
-    .optional()
-    .isNumeric()
-    .withMessage('Order must be a number'),
 ];
 
 // Validation rules for updating a project (all optional)
@@ -86,12 +89,12 @@ export const validateProjectUpdate = [
   body('description')
     .optional()
     .trim()
-    .isLength({ max: 500 })
-    .withMessage('Description cannot exceed 500 characters'),
+    .isLength({ max: 5000 })
+    .withMessage('Description cannot exceed 5000 characters'),
 
   body('technologies')
     .optional()
-    .isArray({ min: 1 })
+    .custom(isValidTechnologies)
     .withMessage('At least one technology is required'),
 
   body('category')
@@ -107,23 +110,21 @@ export const validateProjectUpdate = [
 
   body('featured')
     .optional()
-    .isBoolean()
+    .custom((value) => {
+      if (typeof value === 'string') {
+        return value === 'true' || value === 'false';
+      }
+      return typeof value === 'boolean';
+    })
     .withMessage('Featured must be true or false'),
 
   body('githubUrl')
-    .optional()
-    .trim()
+    .optional({ nullable: true, checkFalsy: true })
     .isURL()
     .withMessage('Invalid GitHub URL'),
 
   body('liveUrl')
-    .optional()
-    .trim()
+    .optional({ nullable: true, checkFalsy: true })
     .isURL()
     .withMessage('Invalid live demo URL'),
-
-  body('order')
-    .optional()
-    .isNumeric()
-    .withMessage('Order must be a number'),
 ];
