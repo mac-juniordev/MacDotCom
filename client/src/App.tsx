@@ -1,5 +1,6 @@
 // ============================================
-// MAIN APP COMPONENT - Updated with Admin Routes
+// MAIN APP COMPONENT
+// Public + Admin Routes
 // ============================================
 
 import { useState, useEffect } from 'react';
@@ -11,11 +12,14 @@ import {
 } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 
-import MainLoader from './components/loaders/MainLoader';
-
+// Layouts
 import PublicLayout from './layouts/PublicLayout';
 import AdminLayout from './layouts/admin/AdminLayout';
 
+// Loaders
+import MainLoader from './components/loaders/MainLoader';
+
+// Public Pages
 import Home from './pages/Home';
 import Projects from './pages/Projects';
 import Products from './pages/Products';
@@ -23,6 +27,7 @@ import About from './pages/About';
 import Contact from './pages/Contact';
 import NotFound from './pages/NotFound';
 
+// Admin Pages
 import Login from './pages/admin/Login';
 import Dashboard from './pages/admin/Dashboard';
 import ProjectsManager from './pages/admin/ProjectsManager';
@@ -41,56 +46,70 @@ import SettingsManager from './pages/admin/SettingsManager';
 type Theme = 'light' | 'dark';
 
 // ============================================
-// GET INITIAL THEME
-// ============================================
-//
-// IMPORTANT:
-// We read localStorage when the state is created
-// instead of calling setTheme() inside an effect.
-//
-// This fixes:
-//
-// "Calling setState synchronously within an effect"
+// INITIAL THEME
 // ============================================
 
 const getInitialTheme = (): Theme => {
-  const savedTheme = localStorage.getItem('theme');
+  try {
+    const savedTheme = localStorage.getItem('theme');
 
-  if (
-    savedTheme === 'light' ||
-    savedTheme === 'dark'
-  ) {
-    return savedTheme;
+    if (savedTheme === 'light' || savedTheme === 'dark') {
+      return savedTheme;
+    }
+  } catch (error) {
+    console.error('Failed to read theme:', error);
   }
 
   return 'dark';
 };
 
 // ============================================
-// MAIN APP COMPONENT
+// AUTH CHECK
+// ============================================
+
+const isAuthenticated = (): boolean => {
+  try {
+    return Boolean(localStorage.getItem('token'));
+  } catch {
+    return false;
+  }
+};
+
+// ============================================
+// ADMIN ROUTE PROTECTION
+// ============================================
+
+const ProtectedAdminRoute = () => {
+  if (!isAuthenticated()) {
+    return (
+      <Navigate
+        to="/command-center/login"
+        replace
+      />
+    );
+  }
+
+  return <AdminLayout />;
+};
+
+// ============================================
+// MAIN APP
 // ============================================
 
 const App = () => {
   // ==========================================
-  // LOADING STATE
+  // LOADING
   // ==========================================
 
-  const [loading, setLoading] =
-    useState(true);
+  const [loading, setLoading] = useState(true);
 
   // ==========================================
-  // THEME STATE
-  // ==========================================
-  //
-  // The theme is initialized directly from
-  // localStorage.
-  //
-  // NO setTheme() inside an initial effect.
-  //
+  // THEME
   // ==========================================
 
-  const [theme, setTheme] =
-    useState<Theme>(getInitialTheme);
+  const [theme, setTheme] = useState<Theme>(
+    getInitialTheme
+  );
 
   // ==========================================
   // LOCATION
@@ -99,23 +118,16 @@ const App = () => {
   const location = useLocation();
 
   // ==========================================
-  // TOGGLE THEME
+  // THEME TOGGLE
   // ==========================================
 
   const toggleTheme = () => {
     setTheme((currentTheme) => {
-      const newTheme =
+      const newTheme: Theme =
         currentTheme === 'light'
           ? 'dark'
           : 'light';
 
-      // Update DOM immediately
-      document.documentElement.classList.toggle(
-        'dark',
-        newTheme === 'dark'
-      );
-
-      // Save preference
       localStorage.setItem(
         'theme',
         newTheme
@@ -126,14 +138,7 @@ const App = () => {
   };
 
   // ==========================================
-  // APPLY INITIAL THEME
-  // ==========================================
-  //
-  // This effect only synchronizes the DOM
-  // with the already-existing React state.
-  //
-  // It does NOT call setTheme().
-  //
+  // APPLY THEME TO DOM
   // ==========================================
 
   useEffect(() => {
@@ -158,32 +163,22 @@ const App = () => {
   }, []);
 
   // ==========================================
-  // AUTHENTICATION
-  // ==========================================
-
-  const isAuthenticated = () => {
-    return Boolean(
-      localStorage.getItem('token')
-    );
-  };
-
-  // ==========================================
   // RENDER
   // ==========================================
 
   return (
     <>
-      {/* ========================================
+      {/* ======================================
           MAIN LOADER
-      ======================================== */}
+      ====================================== */}
 
       <AnimatePresence mode="wait">
         {loading && <MainLoader />}
       </AnimatePresence>
 
-      {/* ========================================
+      {/* ======================================
           APPLICATION
-      ======================================== */}
+      ====================================== */}
 
       {!loading && (
         <Routes
@@ -202,46 +197,29 @@ const App = () => {
               />
             }
           >
-            {/* Home */}
-
             <Route
               path="/"
               element={<Home />}
             />
-
-            {/* Projects */}
 
             <Route
               path="/projects"
               element={<Projects />}
             />
 
-            {/* Products */}
-
             <Route
               path="/products"
               element={<Products />}
             />
-
-            {/* About */}
 
             <Route
               path="/about"
               element={<About />}
             />
 
-            {/* Contact */}
-
             <Route
               path="/contact"
               element={<Contact />}
-            />
-
-            {/* Public 404 */}
-
-            <Route
-              path="*"
-              element={<NotFound />}
             />
           </Route>
 
@@ -255,88 +233,14 @@ const App = () => {
           />
 
           {/* ====================================
-              ADMIN ROUTES
+              PROTECTED ADMIN ROUTES
           ==================================== */}
 
           <Route
             path="/command-center"
-            element={
-              isAuthenticated() ? (
-                <AdminLayout />
-              ) : (
-                <Navigate
-                  to="/command-center/login"
-                  replace
-                />
-              )
-            }
+            element={<ProtectedAdminRoute />}
           >
             {/* Dashboard */}
-
-            <Route
-              path="dashboard"
-              element={<Dashboard />}
-            />
-
-            {/* Projects Manager */}
-
-            <Route
-              path="projects"
-              element={<ProjectsManager />}
-            />
-
-            {/* Products Manager */}
-
-            <Route
-              path="products"
-              element={<ProductsManager />}
-            />
-
-            {/* Homepage Manager */}
-
-            <Route
-              path="homepage"
-              element={<HomepageManager />}
-            />
-
-            {/* Theme Manager */}
-
-            <Route
-              path="theme"
-              element={<ThemeManager />}
-            />
-
-            {/* Skills Manager */}
-
-            <Route
-              path="skills"
-              element={<SkillsManager />}
-            />
-
-            {/* Timeline Manager */}
-
-            <Route
-              path="timeline"
-              element={<TimelineManager />}
-            />
-
-            {/* Messages Manager */}
-
-            <Route
-              path="messages"
-              element={<MessagesManager />}
-            />
-
-            {/* Settings Manager */}
-
-            <Route
-              path="settings"
-              element={<SettingsManager />}
-            />
-
-            {/* ==================================
-                ADMIN DEFAULT ROUTE
-            ================================== */}
 
             <Route
               index
@@ -347,7 +251,77 @@ const App = () => {
                 />
               }
             />
+
+            <Route
+              path="dashboard"
+              element={<Dashboard />}
+            />
+
+            {/* Projects */}
+
+            <Route
+              path="projects"
+              element={<ProjectsManager />}
+            />
+
+            {/* Products */}
+
+            <Route
+              path="products"
+              element={<ProductsManager />}
+            />
+
+            {/* Homepage */}
+
+            <Route
+              path="homepage"
+              element={<HomepageManager />}
+            />
+
+            {/* Theme */}
+
+            <Route
+              path="theme"
+              element={<ThemeManager />}
+            />
+
+            {/* Skills */}
+
+            <Route
+              path="skills"
+              element={<SkillsManager />}
+            />
+
+            {/* Timeline */}
+
+            <Route
+              path="timeline"
+              element={<TimelineManager />}
+            />
+
+            {/* Messages */}
+
+            <Route
+              path="messages"
+              element={<MessagesManager />}
+            />
+
+            {/* Settings */}
+
+            <Route
+              path="settings"
+              element={<SettingsManager />}
+            />
           </Route>
+
+          {/* ====================================
+              GLOBAL 404
+          ==================================== */}
+
+          <Route
+            path="*"
+            element={<NotFound />}
+          />
         </Routes>
       )}
     </>
