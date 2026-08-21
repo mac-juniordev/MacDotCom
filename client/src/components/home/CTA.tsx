@@ -1,6 +1,6 @@
 // ============================================
-// CTA COMPONENT
-// Call to action section with animations
+// CTA COMPONENT - FIXED
+// Theme aware
 // ============================================
 
 import { motion } from 'framer-motion';
@@ -48,7 +48,7 @@ const CTA = () => {
           initial={{ opacity: 0, scale: 0.5 }}
           whileInView={{ opacity: 1, scale: 1 }}
           transition={{ type: 'spring', bounce: 0.5 }}
-          className="text-4xl sm:text-6xl font-black mb-6"
+          className="text-4xl sm:text-6xl font-black mb-6 text-primary"
         >
           <span className="bg-gradient-to-r from-blue-500 via-purple-500 to-green-500 bg-clip-text text-transparent">
             Ready to Build Something Amazing?
@@ -59,7 +59,7 @@ const CTA = () => {
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          className="text-xl text-gray-600 dark:text-gray-400 mb-8"
+          className="text-xl text-secondary mb-8"
         >
           Let's discuss your project and bring your vision to life.
         </motion.p>
@@ -73,7 +73,6 @@ const CTA = () => {
               className="px-8 py-4 bg-gradient-to-r from-blue-500 to-green-500 text-white rounded-full font-semibold text-lg relative overflow-hidden group"
             >
               <span className="relative z-10">Get Started</span>
-              {/* Shine effect */}
               <motion.div
                 className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent"
                 animate={{ x: ['-100%', '100%'] }}
@@ -87,7 +86,7 @@ const CTA = () => {
               href="/projects"
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
-              className="px-8 py-4 border-2 border-gray-300 dark:border-gray-700 rounded-full font-semibold text-lg"
+              className="px-8 py-4 border-2 border-gray-300 dark:border-gray-700 rounded-full font-semibold text-lg text-primary"
             >
               View Work
             </motion.a>

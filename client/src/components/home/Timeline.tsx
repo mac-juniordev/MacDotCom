@@ -1,6 +1,6 @@
 // ============================================
-// TIMELINE COMPONENT
-// Animated career timeline
+// TIMELINE COMPONENT - FIXED
+// Theme aware
 // ============================================
 
 import { motion } from 'framer-motion';
@@ -47,7 +47,7 @@ const Timeline = () => {
           transition={{ duration: 0.8 }}
           className="text-center mb-12"
         >
-          <h2 className="text-4xl sm:text-5xl font-black mb-4">
+          <h2 className="text-4xl sm:text-5xl font-black mb-4 text-primary">
             <span className="bg-gradient-to-r from-yellow-500 to-red-500 bg-clip-text text-transparent">
               Our Journey
             </span>
@@ -101,8 +101,8 @@ const Timeline = () => {
                   >
                     {entry.year}
                   </motion.span>
-                  <h3 className="text-xl font-bold mt-2">{entry.title}</h3>
-                  <p className="text-gray-600 dark:text-gray-400 mt-2">
+                  <h3 className="text-xl font-bold mt-2 text-primary">{entry.title}</h3>
+                  <p className="text-secondary mt-2">
                     {entry.description}
                   </p>
                 </div>
