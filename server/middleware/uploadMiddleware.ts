@@ -5,7 +5,6 @@
 // ============================================
 
 import multer from 'multer';
-
 import {
   MAX_FILE_SIZE,
   ALLOWED_FILE_TYPES,
@@ -17,11 +16,11 @@ import {
 //
 // IMPORTANT:
 // Do NOT use diskStorage() on Vercel.
-// Serverless filesystems are ephemeral.
 //
-// Files are kept in memory temporarily and
-// uploaded directly to Cloudinary by the
-// controller/service.
+// Vercel serverless functions have an ephemeral
+// filesystem. Files uploaded with multer are
+// therefore kept in memory and then sent directly
+// to Cloudinary.
 //
 
 const storage = multer.memoryStorage();
@@ -63,9 +62,7 @@ const upload = multer({
 // Upload one file
 // ============================================
 
-export const uploadSingle = (
-  fieldName: string
-) => {
+export const uploadSingle = (fieldName: string) => {
   return upload.single(fieldName);
 };
 
@@ -77,10 +74,7 @@ export const uploadMultiple = (
   fieldName: string,
   maxCount: number = 5
 ) => {
-  return upload.array(
-    fieldName,
-    maxCount
-  );
+  return upload.array(fieldName, maxCount);
 };
 
 // ============================================

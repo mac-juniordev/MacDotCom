@@ -35,9 +35,7 @@ export const uploadFile = async (
 
         if (!result) {
           reject(
-            new Error(
-              'Cloudinary upload returned no result'
-            )
+            new Error('Cloudinary upload returned no result')
           );
           return;
         }
@@ -78,9 +76,9 @@ const getPublicIdFromUrl = (
       uploadIndex + '/upload/'.length
     );
 
-    // Remove transformation segments.
     const segments = publicPath.split('/');
 
+    // Remove transformation segments.
     while (
       segments.length > 0 &&
       (
@@ -106,7 +104,7 @@ const getPublicIdFromUrl = (
       ''
     );
 
-    // Remove file extension.
+    // Remove extension.
     publicPath = publicPath.replace(
       /\.[^/.]+$/,
       ''
@@ -129,14 +127,10 @@ const getPublicIdFromUrl = (
 
 export const deleteFile = async (
   fileUrl: string,
-  resourceType:
-    | 'image'
-    | 'raw'
-    | 'video' = 'image'
+  resourceType: 'image' | 'raw' | 'video' = 'image'
 ): Promise<void> => {
   try {
-    const publicId =
-      getPublicIdFromUrl(fileUrl);
+    const publicId = getPublicIdFromUrl(fileUrl);
 
     if (!publicId) {
       console.warn(
@@ -170,10 +164,7 @@ export const deleteFile = async (
 
 export const deleteFiles = async (
   fileUrls: string[],
-  resourceType:
-    | 'image'
-    | 'raw'
-    | 'video' = 'image'
+  resourceType: 'image' | 'raw' | 'video' = 'image'
 ): Promise<void> => {
   await Promise.all(
     fileUrls.map((fileUrl) =>
@@ -188,10 +179,7 @@ export const deleteFiles = async (
 
 export const getFileInfo = async (
   fileUrl: string,
-  resourceType:
-    | 'image'
-    | 'raw'
-    | 'video' = 'image'
+  resourceType: 'image' | 'raw' | 'video' = 'image'
 ): Promise<{
   exists: boolean;
   publicId?: string;
@@ -203,8 +191,7 @@ export const getFileInfo = async (
   createdAt?: string;
 }> => {
   try {
-    const publicId =
-      getPublicIdFromUrl(fileUrl);
+    const publicId = getPublicIdFromUrl(fileUrl);
 
     if (!publicId) {
       return { exists: false };
