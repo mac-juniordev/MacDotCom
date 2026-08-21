@@ -1,47 +1,75 @@
 // ============================================
-// PARTICLE SYSTEM ANIMATION
-// Presets for particle effects
+// PARTICLE FIELD COMPONENT
+// Animated particle system
 // ============================================
 
-import { Variants } from 'framer-motion';
+import { motion } from 'framer-motion';
 
-// Rising particles
-export const riseParticles: Variants = {
-  animate: {
-    y: [-100, 100],
-    opacity: [0, 1, 0],
-    scale: [0, 1, 0],
-    transition: {
-      duration: 5,
-      repeat: Infinity,
-      ease: 'easeOut',
-    },
-  },
+interface ParticleFieldProps {
+  count?: number;
+}
+
+interface Particle {
+  x: number;
+  y: number;
+  moveX: number;
+  moveY: number;
+  duration: number;
+  delay: number;
+  size: number;
+}
+
+// Create deterministic particles.
+// No Math.random() during render.
+const createParticles = (count: number): Particle[] => {
+  return Array.from({ length: count }, (_, i) => ({
+    x: (i * 37 + 13) % 100,
+    y: (i * 61 + 7) % 100,
+    moveX: ((i * 43) % 100) - 50,
+    moveY: -50 - ((i * 29) % 100),
+    duration: 3 + ((i * 17) % 50) / 10,
+    delay: ((i * 19) % 50) / 10,
+    size: 2 + (i % 3),
+  }));
 };
 
-// Floating particles
-export const floatParticles: Variants = {
-  animate: {
-    x: [0, 20, -20, 0],
-    y: [0, -30, 0],
-    opacity: [0.3, 0.8, 0.3],
-    transition: {
-      duration: 8,
-      repeat: Infinity,
-      ease: 'easeInOut',
-    },
-  },
+const ParticleField = ({
+  count = 30,
+}: ParticleFieldProps) => {
+  const particles = createParticles(count);
+
+  return (
+    <div className="absolute inset-0 overflow-hidden pointer-events-none">
+      {particles.map((particle, index) => (
+        <motion.div
+          key={index}
+          className="absolute rounded-full bg-blue-500"
+          style={{
+            left: `${particle.x}%`,
+            top: `${particle.y}%`,
+            width: particle.size,
+            height: particle.size,
+          }}
+          initial={{
+            opacity: 0,
+            scale: 0,
+          }}
+          animate={{
+            x: [0, particle.moveX],
+            y: [0, particle.moveY],
+            opacity: [0, 1, 0],
+            scale: [0, 1, 0],
+          }}
+          transition={{
+            duration: particle.duration,
+            repeat: Infinity,
+            delay: particle.delay,
+            ease: 'easeOut',
+          }}
+        />
+      ))}
+    </div>
+  );
 };
 
-// Exploding particles
-export const explodeParticles: Variants = {
-  animate: {
-    scale: [0, 1.5, 0],
-    opacity: [1, 0.5, 0],
-    transition: {
-      duration: 3,
-      repeat: Infinity,
-      ease: 'easeOut',
-    },
-  },
-};
+export default ParticleField;
