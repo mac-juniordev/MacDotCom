@@ -126,7 +126,7 @@ const Footer = () => {
                 >
                   ✉
                 </motion.span>
-                hello@macdotcom.com
+                junmac108@gmail.com
               </li>
               <li className="text-gray-600 dark:text-gray-400 flex items-center gap-2">
                 <motion.span

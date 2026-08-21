@@ -34,7 +34,6 @@
    BASE STYLES
    ============================================ */
 
-
 html {
   scroll-behavior: smooth;
 }
@@ -45,6 +44,26 @@ body {
   color: var(--foreground);
   overflow-x: hidden;
   transition: background-color 0.5s ease, color 0.5s ease;
+}
+
+/* ============================================
+   FORM INPUTS - Theme aware
+   ============================================ */
+
+input, textarea, select {
+  background-color: var(--card);
+  color: var(--foreground);
+  border-color: var(--border);
+}
+
+input::placeholder, textarea::placeholder {
+  color: var(--foreground);
+  opacity: 0.5;
+}
+
+input:focus, textarea:focus, select:focus {
+  color: var(--foreground);
+  background-color: var(--card);
 }
 
 /* ============================================
@@ -78,6 +97,24 @@ body {
   background: rgba(0, 0, 0, 0.3);
   backdrop-filter: blur(10px);
   border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* ============================================
+   TEXT COLORS - Theme aware
+   ============================================ */
+
+.text-primary {
+  color: var(--foreground);
+}
+
+.text-secondary {
+  color: var(--foreground);
+  opacity: 0.7;
+}
+
+.text-muted {
+  color: var(--foreground);
+  opacity: 0.5;
 }
 
 /* ============================================

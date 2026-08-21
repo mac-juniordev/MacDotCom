@@ -57,7 +57,7 @@ const siteSettingsSchema = new Schema<ISiteSettings>(
     },
     contactEmail: {
       type: String,
-      default: 'hello@macdotcom.com',
+      default: 'junmac108@gmail.com',
     },
     phone: {
       type: String,
