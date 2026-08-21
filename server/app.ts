@@ -11,18 +11,18 @@ import path from 'path';
 import { ensureUploadDirectories, UPLOAD_DIR } from './config/storage';
 
 // Import all route files
-// import authRoutes from './routes/authRoutes';
-// import projectRoutes from './routes/projectRoutes';
-// import productRoutes from './routes/productRoutes';
-// import homepageRoutes from './routes/homepageRoutes';
-// import themeRoutes from './routes/themeRoutes';
-// import skillRoutes from './routes/skillRoutes';
-// import timelineRoutes from './routes/timelineRoutes';
-// import messageRoutes from './routes/messageRoutes';
-// import socialLinkRoutes from './routes/socialLinkRoutes';
-// import statisticRoutes from './routes/statisticRoutes';
-// import testimonialRoutes from './routes/testimonialRoutes';
-// import siteSettingsRoutes from './routes/siteSettingsRoutes';
+import authRoutes from './routes/authRoutes';
+import projectRoutes from './routes/projectRoutes';
+import productRoutes from './routes/productRoutes';
+import homepageRoutes from './routes/homepageRoutes';
+import themeRoutes from './routes/themeRoutes';
+import skillRoutes from './routes/skillRoutes';
+import timelineRoutes from './routes/timelineRoutes';
+import messageRoutes from './routes/messageRoutes';
+import socialLinkRoutes from './routes/socialLinkRoutes';
+import statisticRoutes from './routes/statisticRoutes';
+import testimonialRoutes from './routes/testimonialRoutes';
+import siteSettingsRoutes from './routes/siteSettingsRoutes';
 
 // Import error middleware
 import { errorHandler, notFound } from './middleware/errorMiddleware';
@@ -84,18 +84,18 @@ app.get('/api/health', (req, res) => {
 // ============================================
 
 // Public routes (no auth needed)
-// app.use('/api/auth', authRoutes);                    // Login only
-// app.use('/api/projects', projectRoutes);             // GET projects
-// app.use('/api/products', productRoutes);             // GET products
-// app.use('/api/homepage', homepageRoutes);            // GET homepage
-// app.use('/api/theme', themeRoutes);                  // GET theme
-// app.use('/api/skills', skillRoutes);                 // GET skills
-// app.use('/api/timeline', timelineRoutes);            // GET timeline
-// app.use('/api/messages', messageRoutes);             // POST message
-// app.use('/api/social-links', socialLinkRoutes);      // GET social links
-// app.use('/api/statistics', statisticRoutes);         // GET statistics
-// app.use('/api/testimonials', testimonialRoutes);     // GET testimonials
-// app.use('/api/site-settings', siteSettingsRoutes);   // GET site settings
+app.use('/api/auth', authRoutes);                    // Login only
+app.use('/api/projects', projectRoutes);             // GET projects
+app.use('/api/products', productRoutes);             // GET products
+app.use('/api/homepage', homepageRoutes);            // GET homepage
+app.use('/api/theme', themeRoutes);                  // GET theme
+app.use('/api/skills', skillRoutes);                 // GET skills
+app.use('/api/timeline', timelineRoutes);            // GET timeline
+app.use('/api/messages', messageRoutes);             // POST message
+app.use('/api/social-links', socialLinkRoutes);      // GET social links
+app.use('/api/statistics', statisticRoutes);         // GET statistics
+app.use('/api/testimonials', testimonialRoutes);     // GET testimonials
+app.use('/api/site-settings', siteSettingsRoutes);   // GET site settings
 
 // ============================================
 // 404 HANDLER
