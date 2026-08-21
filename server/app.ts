@@ -104,6 +104,15 @@ app.use('/api/site-settings', siteSettingsRoutes);   // GET site settings
 app.use(notFound);
 
 // ============================================
+// FAVICON HANDLER
+// ============================================
+
+app.get('/favicon.ico', (req, res) => {
+  // Send empty response (no favicon yet)
+  res.status(204).end();
+});
+
+// ============================================
 // ERROR HANDLER
 // ============================================
 
