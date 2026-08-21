@@ -1,92 +1,276 @@
 // ============================================
 // UPLOAD SERVICE
-// Helper functions for file management
+// Cloudinary-based file management
 // ============================================
 
-import fs from 'fs-extra';
-import path from 'path';
-import { UPLOAD_DIR } from '../config/storage';
+import cloudinary from '../config/cloudinary';
+import { UploadApiResponse } from 'cloudinary';
 
-// Delete a file from uploads folder
-export const deleteFile = async (filePath: string): Promise<void> => {
-  try {
-    // Build full file path
-    const fullPath = path.join(UPLOAD_DIR, filePath.replace('/uploads/', ''));
-    
-    // Check if file exists
-    if (await fs.pathExists(fullPath)) {
-      // Delete file
-      await fs.remove(fullPath);
-      console.log(`File deleted: ${filePath}`);
-    }
-  } catch (error) {
-    console.error(`Failed to delete file: ${filePath}`, error);
+// ============================================
+// Upload a file to Cloudinary
+// ============================================
+
+export const uploadFile = async (
+  file: Express.Multer.File,
+  folder: string = 'portfolio'
+): Promise<UploadApiResponse> => {
+  if (!file?.buffer) {
+    throw new Error('No file buffer provided');
   }
-};
 
-// Delete multiple files
-export const deleteFiles = async (filePaths: string[]): Promise<void> => {
-  try {
-    // Delete each file
-    for (const filePath of filePaths) {
-      await deleteFile(filePath);
-    }
-  } catch (error) {
-    console.error('Failed to delete files', error);
-  }
-};
-
-// Get file info
-export const getFileInfo = async (filePath: string): Promise<any> => {
-  try {
-    // Build full file path
-    const fullPath = path.join(UPLOAD_DIR, filePath.replace('/uploads/', ''));
-    
-    // Check if file exists
-    if (await fs.pathExists(fullPath)) {
-      // Get file stats
-      const stats = await fs.stat(fullPath);
-      
-      return {
-        exists: true,
-        size: stats.size,
-        createdAt: stats.birthtime,
-        modifiedAt: stats.mtime,
-      };
-    }
-    
-    return { exists: false };
-  } catch (error) {
-    console.error(`Failed to get file info: ${filePath}`, error);
-    return { exists: false };
-  }
-};
-
-// Clean temp files older than 1 hour
-export const cleanTempFiles = async (): Promise<void> => {
-  try {
-    const tempDir = path.join(UPLOAD_DIR, 'temp');
-    
-    // Check if temp directory exists
-    if (await fs.pathExists(tempDir)) {
-      // Read all files in temp directory
-      const files = await fs.readdir(tempDir);
-      
-      // Get current time
-      const now = Date.now();
-      
-      // Check each file
-      for (const file of files) {
-        const filePath = path.join(tempDir, file);
-        const stats = await fs.stat(filePath);
-        
-        // Delete if older than 1 hour
-        if (now - stats.mtime.getTime() > 3600000) {
-          await fs.remove(filePath);
+  return new Promise((resolve, reject) => {
+    const uploadStream = cloudinary.uploader.upload_stream(
+      {
+        folder,
+        resource_type: 'auto',
+        use_filename: true,
+        unique_filename: true,
+        overwrite: false,
+      },
+      (error, result) => {
+        if (error) {
+          reject(error);
+          return;
         }
+
+        if (!result) {
+          reject(
+            new Error(
+              'Cloudinary upload returned no result'
+            )
+          );
+          return;
+        }
+
+        resolve(result);
       }
+    );
+
+    uploadStream.end(file.buffer);
+  });
+};
+
+// ============================================
+// Extract Cloudinary public ID from URL
+// ============================================
+
+const getPublicIdFromUrl = (
+  fileUrl: string
+): string | null => {
+  try {
+    if (
+      !fileUrl ||
+      !fileUrl.includes('cloudinary.com')
+    ) {
+      return null;
     }
+
+    const url = new URL(fileUrl);
+
+    const uploadIndex =
+      url.pathname.indexOf('/upload/');
+
+    if (uploadIndex === -1) {
+      return null;
+    }
+
+    let publicPath = url.pathname.substring(
+      uploadIndex + '/upload/'.length
+    );
+
+    // Remove transformation segments.
+    const segments = publicPath.split('/');
+
+    while (
+      segments.length > 0 &&
+      (
+        segments[0].startsWith('w_') ||
+        segments[0].startsWith('h_') ||
+        segments[0].startsWith('c_') ||
+        segments[0].startsWith('q_') ||
+        segments[0].startsWith('f_') ||
+        segments[0].startsWith('g_') ||
+        segments[0].startsWith('ar_') ||
+        segments[0].startsWith('dpr_') ||
+        segments[0].startsWith('e_')
+      )
+    ) {
+      segments.shift();
+    }
+
+    publicPath = segments.join('/');
+
+    // Remove Cloudinary version.
+    publicPath = publicPath.replace(
+      /^v\d+\//,
+      ''
+    );
+
+    // Remove file extension.
+    publicPath = publicPath.replace(
+      /\.[^/.]+$/,
+      ''
+    );
+
+    return publicPath || null;
   } catch (error) {
-    console.error('Failed to clean temp files', error);
+    console.error(
+      'Failed to extract Cloudinary public ID:',
+      error
+    );
+
+    return null;
   }
+};
+
+// ============================================
+// Delete a Cloudinary resource
+// ============================================
+
+export const deleteFile = async (
+  fileUrl: string,
+  resourceType:
+    | 'image'
+    | 'raw'
+    | 'video' = 'image'
+): Promise<void> => {
+  try {
+    const publicId =
+      getPublicIdFromUrl(fileUrl);
+
+    if (!publicId) {
+      console.warn(
+        `Could not determine Cloudinary public ID: ${fileUrl}`
+      );
+      return;
+    }
+
+    await cloudinary.uploader.destroy(
+      publicId,
+      {
+        resource_type: resourceType,
+        invalidate: true,
+      }
+    );
+
+    console.log(
+      `Cloudinary file deleted: ${publicId}`
+    );
+  } catch (error) {
+    console.error(
+      `Failed to delete Cloudinary file: ${fileUrl}`,
+      error
+    );
+  }
+};
+
+// ============================================
+// Delete multiple Cloudinary files
+// ============================================
+
+export const deleteFiles = async (
+  fileUrls: string[],
+  resourceType:
+    | 'image'
+    | 'raw'
+    | 'video' = 'image'
+): Promise<void> => {
+  await Promise.all(
+    fileUrls.map((fileUrl) =>
+      deleteFile(fileUrl, resourceType)
+    )
+  );
+};
+
+// ============================================
+// Get Cloudinary file information
+// ============================================
+
+export const getFileInfo = async (
+  fileUrl: string,
+  resourceType:
+    | 'image'
+    | 'raw'
+    | 'video' = 'image'
+): Promise<{
+  exists: boolean;
+  publicId?: string;
+  secureUrl?: string;
+  format?: string;
+  bytes?: number;
+  width?: number;
+  height?: number;
+  createdAt?: string;
+}> => {
+  try {
+    const publicId =
+      getPublicIdFromUrl(fileUrl);
+
+    if (!publicId) {
+      return { exists: false };
+    }
+
+    const resource =
+      await cloudinary.api.resource(
+        publicId,
+        {
+          resource_type: resourceType,
+        }
+      );
+
+    return {
+      exists: true,
+      publicId: resource.public_id,
+      secureUrl: resource.secure_url,
+      format: resource.format,
+      bytes: resource.bytes,
+      width: resource.width,
+      height: resource.height,
+      createdAt: resource.created_at,
+    };
+  } catch (error: any) {
+    if (error?.http_code === 404) {
+      return { exists: false };
+    }
+
+    console.error(
+      `Failed to get Cloudinary file info: ${fileUrl}`,
+      error
+    );
+
+    return { exists: false };
+  }
+};
+
+// ============================================
+// Get Cloudinary public ID
+// ============================================
+
+export const getCloudinaryPublicId = (
+  fileUrl: string
+): string | null => {
+  return getPublicIdFromUrl(fileUrl);
+};
+
+// ============================================
+// Backwards-compatible cleanup function
+// ============================================
+
+export const cleanTempFiles =
+  async (): Promise<void> => {
+    // No local filesystem cleanup is required.
+    // Cloudinary is the persistent file storage.
+  };
+
+// ============================================
+// Export
+// ============================================
+
+export default {
+  uploadFile,
+  deleteFile,
+  deleteFiles,
+  getFileInfo,
+  getCloudinaryPublicId,
+  cleanTempFiles,
 };

@@ -1,90 +1,175 @@
 // ============================================
-// JWT TOKEN GENERATOR
-// Creates secure tokens for authentication
+// JWT TOKEN UTILITIES
+// Creates and verifies authentication tokens
 // ============================================
 
 import jwt from 'jsonwebtoken';
-import dotenv from 'dotenv';
 
-// Load environment variables
-dotenv.config();
+// ============================================
+// Token payload
+// ============================================
 
-// Get JWT secret and expiry from .env
-const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_change_this';
-const JWT_EXPIRE = process.env.JWT_EXPIRE || '30d';
-
-// Interface for token payload
-interface TokenPayload {
+export interface TokenPayload {
   id: string;
   email: string;
   role: string;
 }
 
-// Function to generate JWT token
-export const generateToken = (payload: TokenPayload): string => {
-  // Create token with payload
+// ============================================
+// JWT configuration
+// ============================================
+
+const getJwtSecret = (): string => {
+  const secret = process.env.JWT_SECRET;
+
+  if (!secret) {
+    throw new Error(
+      'JWT_SECRET environment variable is not configured'
+    );
+  }
+
+  return secret;
+};
+
+const JWT_EXPIRE =
+  process.env.JWT_EXPIRE || '30d';
+
+// ============================================
+// Generate access token
+// ============================================
+
+export const generateToken = (
+  payload: TokenPayload
+): string => {
   const token = jwt.sign(
     payload,
-    JWT_SECRET,
-    { expiresIn: JWT_EXPIRE } as jwt.SignOptions
+    getJwtSecret(),
+    {
+      expiresIn: JWT_EXPIRE,
+    } as jwt.SignOptions
   );
-  
-  // Return the token
+
   return token;
 };
 
-// Function to verify JWT token
-export const verifyToken = (token: string): TokenPayload | null => {
+// ============================================
+// Verify access token
+// ============================================
+
+export const verifyToken = (
+  token: string
+): TokenPayload | null => {
   try {
-    // Verify token and return payload
-    const decoded = jwt.verify(token, JWT_SECRET) as TokenPayload;
-    return decoded;
-  } catch (error) {
-    // Return null if token is invalid
+    const decoded = jwt.verify(
+      token,
+      getJwtSecret()
+    );
+
+    if (
+      typeof decoded !== 'object' ||
+      decoded === null
+    ) {
+      return null;
+    }
+
+    if (
+      typeof decoded.id !== 'string' ||
+      typeof decoded.email !== 'string' ||
+      typeof decoded.role !== 'string'
+    ) {
+      return null;
+    }
+
+    return {
+      id: decoded.id,
+      email: decoded.email,
+      role: decoded.role,
+    };
+  } catch {
     return null;
   }
 };
 
-// Function to decode token without verification
-export const decodeToken = (token: string): TokenPayload | null => {
+// ============================================
+// Decode token without verification
+// ============================================
+//
+// WARNING:
+// This function must NEVER be used for
+// authorization decisions.
+//
+
+export const decodeToken = (
+  token: string
+): TokenPayload | null => {
   try {
-    // Decode token without verifying signature
-    const decoded = jwt.decode(token) as TokenPayload;
-    return decoded;
-  } catch (error) {
+    const decoded = jwt.decode(token);
+
+    if (
+      typeof decoded !== 'object' ||
+      decoded === null
+    ) {
+      return null;
+    }
+
+    if (
+      typeof decoded.id !== 'string' ||
+      typeof decoded.email !== 'string' ||
+      typeof decoded.role !== 'string'
+    ) {
+      return null;
+    }
+
+    return {
+      id: decoded.id,
+      email: decoded.email,
+      role: decoded.role,
+    };
+  } catch {
     return null;
   }
 };
 
-// Function to create refresh token (longer expiry)
-export const generateRefreshToken = (payload: TokenPayload): string => {
-  // Refresh tokens last longer (60 days)
-  const refreshToken = jwt.sign(
+// ============================================
+// Generate refresh token
+// ============================================
+
+export const generateRefreshToken = (
+  payload: TokenPayload
+): string => {
+  return jwt.sign(
     payload,
-    JWT_SECRET,
-    { expiresIn: '60d' } as jwt.SignOptions
+    getJwtSecret(),
+    {
+      expiresIn: '60d',
+    } as jwt.SignOptions
   );
-  
-  return refreshToken;
 };
 
-// Function to extract token from Authorization header
-export const extractTokenFromHeader = (authHeader: string | undefined): string | null => {
-  // Check if header exists
+// ============================================
+// Extract Bearer token
+// ============================================
+
+export const extractTokenFromHeader = (
+  authHeader: string | undefined
+): string | null => {
   if (!authHeader) {
     return null;
   }
-  
-  // Check if header starts with "Bearer "
+
   if (!authHeader.startsWith('Bearer ')) {
     return null;
   }
-  
-  // Extract token (remove "Bearer " prefix)
-  const token = authHeader.split(' ')[1];
-  
-  return token;
+
+  const token = authHeader
+    .slice(7)
+    .trim();
+
+  return token || null;
 };
 
-// Export default
+// ============================================
+// Default export
+// ============================================
+
 export default generateToken;

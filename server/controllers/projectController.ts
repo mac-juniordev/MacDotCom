@@ -4,7 +4,6 @@
 // ============================================
 
 import { Request, Response } from 'express';
-import multer from 'multer';
 
 import Project from '../models/Project';
 
@@ -14,23 +13,64 @@ import {
   paginatedResponse,
 } from '../utils/apiResponse';
 
+import {
+  uploadFile,
+  deleteFile,
+  deleteFiles,
+} from '../services/uploadService';
+
 // ============================================
-// Types
+// Helpers
 // ============================================
 
-type MulterFile = Express.Multer.File;
+const parseTechnologies = (
+  technologies: unknown
+): string[] => {
+  if (Array.isArray(technologies)) {
+    return technologies
+      .map(String)
+      .map((value) => value.trim())
+      .filter(Boolean);
+  }
 
-interface ProjectFiles {
-  thumbnail?: MulterFile[];
-  gallery?: MulterFile[];
-}
+  if (typeof technologies === 'string') {
+    try {
+      const parsed = JSON.parse(technologies);
 
-type MulterRequest = Request & {
-  files?: ProjectFiles;
+      if (Array.isArray(parsed)) {
+        return parsed
+          .map(String)
+          .map((value) => value.trim())
+          .filter(Boolean);
+      }
+    } catch {
+      // Fall back to comma-separated values.
+    }
+
+    return technologies
+      .split(',')
+      .map((value) => value.trim())
+      .filter(Boolean);
+  }
+
+  return [];
+};
+
+const parseBoolean = (
+  value: unknown
+): boolean | undefined => {
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+
+  if (value === 'true') return true;
+  if (value === 'false') return false;
+
+  return undefined;
 };
 
 // ============================================
-// Get all projects (public)
+// Get all projects
 // ============================================
 
 export const getProjects = async (
@@ -38,8 +78,21 @@ export const getProjects = async (
   res: Response
 ): Promise<void> => {
   try {
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 10;
+    const page =
+      Math.max(
+        parseInt(req.query.page as string) || 1,
+        1
+      );
+
+    const limit =
+      Math.min(
+        Math.max(
+          parseInt(req.query.limit as string) || 10,
+          1
+        ),
+        100
+      );
+
     const skip = (page - 1) * limit;
 
     const filter: Record<string, unknown> = {};
@@ -56,7 +109,8 @@ export const getProjects = async (
       filter.featured = true;
     }
 
-    const total = await Project.countDocuments(filter);
+    const total =
+      await Project.countDocuments(filter);
 
     const projects = await Project.find(filter)
       .sort({ order: 1, createdAt: -1 })
@@ -82,7 +136,7 @@ export const getProjects = async (
 };
 
 // ============================================
-// Get single project by ID (public)
+// Get single project
 // ============================================
 
 export const getProjectById = async (
@@ -92,14 +146,19 @@ export const getProjectById = async (
   try {
     const { id } = req.params;
 
-    const project = await Project.findByIdAndUpdate(
-      id,
-      { $inc: { views: 1 } },
-      { new: true }
-    );
+    const project =
+      await Project.findByIdAndUpdate(
+        id,
+        { $inc: { views: 1 } },
+        { new: true }
+      );
 
     if (!project) {
-      errorResponse(res, 'Project not found', 404);
+      errorResponse(
+        res,
+        'Project not found',
+        404
+      );
       return;
     }
 
@@ -120,7 +179,7 @@ export const getProjectById = async (
 };
 
 // ============================================
-// Get featured projects (public)
+// Get featured projects
 // ============================================
 
 export const getFeaturedProjects = async (
@@ -151,101 +210,198 @@ export const getFeaturedProjects = async (
 };
 
 // ============================================
-// Create new project (admin only)
+// Create project
 // ============================================
 
-// Create new project (admin only)
-export const createProject = async (req: Request, res: Response): Promise<void> => {
+export const createProject = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
-    const projectData = req.body;
+    const projectData: Record<string, any> = {
+      ...req.body,
+    };
 
-    // Parse technologies if it's a JSON string
-    if (typeof projectData.technologies === 'string') {
-      try {
-        projectData.technologies = JSON.parse(projectData.technologies);
-      } catch (error) {
-        // If JSON parse fails, split by comma
-        projectData.technologies = projectData.technologies.split(',').map((t: string) => t.trim());
-      }
+    projectData.technologies =
+      parseTechnologies(
+        projectData.technologies
+      );
+
+    const featured = parseBoolean(
+      projectData.featured
+    );
+
+    if (featured !== undefined) {
+      projectData.featured = featured;
     }
 
-    // Parse featured if it's a string
-    if (typeof projectData.featured === 'string') {
-      projectData.featured = projectData.featured === 'true';
-    }
-
-    // Add thumbnail if uploaded
+    // Upload thumbnail to Cloudinary
     if (req.file) {
-      projectData.thumbnail = `/uploads/projects/${req.file.filename}`;
+      const uploaded = await uploadFile(
+        req.file,
+        'macdotcom/projects'
+      );
+
+      projectData.thumbnail =
+        uploaded.secure_url;
     }
 
-    // Add gallery images if uploaded
+    // Upload gallery images
     if (req.files) {
-      const files = req.files as Express.Multer.File[];
-      projectData.gallery = files.map(file => `/uploads/projects/${file.filename}`);
+      const files =
+        req.files as Express.Multer.File[];
+
+      const uploadedFiles =
+        await Promise.all(
+          files.map((file) =>
+            uploadFile(
+              file,
+              'macdotcom/projects/gallery'
+            )
+          )
+        );
+
+      projectData.gallery =
+        uploadedFiles.map(
+          (file) => file.secure_url
+        );
     }
 
-    // Create project
-    const project = await Project.create(projectData);
+    const project =
+      await Project.create(projectData);
 
-    // Send created project
-    successResponse(res, 'Project created successfully', project, 201);
+    successResponse(
+      res,
+      'Project created successfully',
+      project,
+      201
+    );
   } catch (error) {
-    errorResponse(res, 'Failed to create project', 500, error);
+    errorResponse(
+      res,
+      'Failed to create project',
+      500,
+      error
+    );
   }
 };
 
 // ============================================
-// Update project (admin only)
+// Update project
 // ============================================
 
-// Update project (admin only)
-export const updateProject = async (req: Request, res: Response): Promise<void> => {
+export const updateProject = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
     const { id } = req.params;
-    const projectData = req.body;
 
-    // Parse technologies if it's a JSON string
-    if (typeof projectData.technologies === 'string') {
-      try {
-        projectData.technologies = JSON.parse(projectData.technologies);
-      } catch (error) {
-        projectData.technologies = projectData.technologies.split(',').map((t: string) => t.trim());
-      }
-    }
+    const project =
+      await Project.findById(id);
 
-    // Parse featured if it's a string
-    if (typeof projectData.featured === 'string') {
-      projectData.featured = projectData.featured === 'true';
-    }
-
-    // Add thumbnail if uploaded
-    if (req.file) {
-      projectData.thumbnail = `/uploads/projects/${req.file.filename}`;
-    }
-
-    // Find and update project
-    const project = await Project.findByIdAndUpdate(
-      id,
-      projectData,
-      { new: true, runValidators: true }
-    );
-
-    // Check if project exists
     if (!project) {
-      errorResponse(res, 'Project not found', 404);
+      errorResponse(
+        res,
+        'Project not found',
+        404
+      );
       return;
     }
 
-    // Send updated project
-    successResponse(res, 'Project updated successfully', project, 200);
+    const projectData: Record<string, any> = {
+      ...req.body,
+    };
+
+    if (
+      projectData.technologies !== undefined
+    ) {
+      projectData.technologies =
+        parseTechnologies(
+          projectData.technologies
+        );
+    }
+
+    const featured = parseBoolean(
+      projectData.featured
+    );
+
+    if (featured !== undefined) {
+      projectData.featured = featured;
+    }
+
+    // Replace thumbnail if a new one was uploaded
+    if (req.file) {
+      const uploaded = await uploadFile(
+        req.file,
+        'macdotcom/projects'
+      );
+
+      const oldThumbnail =
+        project.thumbnail;
+
+      projectData.thumbnail =
+        uploaded.secure_url;
+
+      if (oldThumbnail) {
+        await deleteFile(oldThumbnail);
+      }
+    }
+
+    // Replace gallery if gallery files were uploaded
+    if (req.files) {
+      const files =
+        req.files as Express.Multer.File[];
+
+      const uploadedFiles =
+        await Promise.all(
+          files.map((file) =>
+            uploadFile(
+              file,
+              'macdotcom/projects/gallery'
+            )
+          )
+        );
+
+      const oldGallery =
+        project.gallery || [];
+
+      projectData.gallery =
+        uploadedFiles.map(
+          (file) => file.secure_url
+        );
+
+      await deleteFiles(oldGallery);
+    }
+
+    const updatedProject =
+      await Project.findByIdAndUpdate(
+        id,
+        projectData,
+        {
+          new: true,
+          runValidators: true,
+        }
+      );
+
+    successResponse(
+      res,
+      'Project updated successfully',
+      updatedProject,
+      200
+    );
   } catch (error) {
-    errorResponse(res, 'Failed to update project', 500, error);
+    errorResponse(
+      res,
+      'Failed to update project',
+      500,
+      error
+    );
   }
 };
 
 // ============================================
-// Delete project (admin only)
+// Delete project
 // ============================================
 
 export const deleteProject = async (
@@ -255,11 +411,27 @@ export const deleteProject = async (
   try {
     const { id } = req.params;
 
-    const project = await Project.findByIdAndDelete(id);
+    const project =
+      await Project.findById(id);
 
     if (!project) {
-      errorResponse(res, 'Project not found', 404);
+      errorResponse(
+        res,
+        'Project not found',
+        404
+      );
       return;
+    }
+
+    await Project.findByIdAndDelete(id);
+
+    // Remove Cloudinary assets
+    if (project.thumbnail) {
+      await deleteFile(project.thumbnail);
+    }
+
+    if (project.gallery?.length) {
+      await deleteFiles(project.gallery);
     }
 
     successResponse(
@@ -279,7 +451,7 @@ export const deleteProject = async (
 };
 
 // ============================================
-// Toggle featured status (admin only)
+// Toggle featured
 // ============================================
 
 export const toggleFeatured = async (
@@ -289,14 +461,20 @@ export const toggleFeatured = async (
   try {
     const { id } = req.params;
 
-    const project = await Project.findById(id);
+    const project =
+      await Project.findById(id);
 
     if (!project) {
-      errorResponse(res, 'Project not found', 404);
+      errorResponse(
+        res,
+        'Project not found',
+        404
+      );
       return;
     }
 
-    project.featured = !project.featured;
+    project.featured =
+      !project.featured;
 
     await project.save();
 
