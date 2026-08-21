@@ -1,9 +1,9 @@
 // ============================================
 // MAIN APP COMPONENT
-// Public + Admin Routes
+// Complete + React 19 safe
 // ============================================
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Routes,
   Route,
@@ -12,14 +12,10 @@ import {
 } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 
-// Layouts
+import MainLoader from './components/loaders/MainLoader';
 import PublicLayout from './layouts/PublicLayout';
 import AdminLayout from './layouts/admin/AdminLayout';
 
-// Loaders
-import MainLoader from './components/loaders/MainLoader';
-
-// Public Pages
 import Home from './pages/Home';
 import Projects from './pages/Projects';
 import Products from './pages/Products';
@@ -27,7 +23,6 @@ import About from './pages/About';
 import Contact from './pages/Contact';
 import NotFound from './pages/NotFound';
 
-// Admin Pages
 import Login from './pages/admin/Login';
 import Dashboard from './pages/admin/Dashboard';
 import ProjectsManager from './pages/admin/ProjectsManager';
@@ -40,24 +35,26 @@ import MessagesManager from './pages/admin/MessagesManager';
 import SettingsManager from './pages/admin/SettingsManager';
 
 // ============================================
-// TYPES
+// THEME TYPE
 // ============================================
 
 type Theme = 'light' | 'dark';
 
 // ============================================
-// INITIAL THEME
+// GET INITIAL THEME
+// This runs BEFORE the first render.
+// No setState inside an effect.
 // ============================================
 
 const getInitialTheme = (): Theme => {
-  try {
-    const savedTheme = localStorage.getItem('theme');
+  if (typeof window === 'undefined') {
+    return 'dark';
+  }
 
-    if (savedTheme === 'light' || savedTheme === 'dark') {
-      return savedTheme;
-    }
-  } catch (error) {
-    console.error('Failed to read theme:', error);
+  const savedTheme = localStorage.getItem('theme');
+
+  if (savedTheme === 'light' || savedTheme === 'dark') {
+    return savedTheme;
   }
 
   return 'dark';
@@ -68,78 +65,31 @@ const getInitialTheme = (): Theme => {
 // ============================================
 
 const isAuthenticated = (): boolean => {
-  try {
-    return Boolean(localStorage.getItem('token'));
-  } catch {
+  if (typeof window === 'undefined') {
     return false;
   }
+
+  return Boolean(localStorage.getItem('token'));
 };
 
 // ============================================
-// ADMIN ROUTE PROTECTION
-// ============================================
-
-const ProtectedAdminRoute = () => {
-  if (!isAuthenticated()) {
-    return (
-      <Navigate
-        to="/command-center/login"
-        replace
-      />
-    );
-  }
-
-  return <AdminLayout />;
-};
-
-// ============================================
-// MAIN APP
+// APP
 // ============================================
 
 const App = () => {
-  // ==========================================
-  // LOADING
-  // ==========================================
-
   const [loading, setLoading] = useState(true);
 
-  // ==========================================
-  // THEME
-  // ==========================================
-
-  const [theme, setTheme] = useState<Theme>(
-    getInitialTheme
-  );
-
-  // ==========================================
-  // LOCATION
-  // ==========================================
+  // IMPORTANT:
+  // Theme is initialized directly instead of inside useEffect.
+  const [theme, setTheme] = useState<Theme>(getInitialTheme);
 
   const location = useLocation();
 
-  // ==========================================
-  // THEME TOGGLE
-  // ==========================================
-
-  const toggleTheme = () => {
-    setTheme((currentTheme) => {
-      const newTheme: Theme =
-        currentTheme === 'light'
-          ? 'dark'
-          : 'light';
-
-      localStorage.setItem(
-        'theme',
-        newTheme
-      );
-
-      return newTheme;
-    });
-  };
-
-  // ==========================================
-  // APPLY THEME TO DOM
-  // ==========================================
+  // ============================================
+  // APPLY INITIAL THEME TO HTML
+  // This is synchronization with the DOM,
+  // which is what useEffect is appropriate for.
+  // ============================================
 
   useEffect(() => {
     document.documentElement.classList.toggle(
@@ -148,9 +98,24 @@ const App = () => {
     );
   }, [theme]);
 
-  // ==========================================
-  // MAIN LOADER
-  // ==========================================
+  // ============================================
+  // TOGGLE THEME
+  // ============================================
+
+  const toggleTheme = () => {
+    setTheme((currentTheme) => {
+      const newTheme: Theme =
+        currentTheme === 'light' ? 'dark' : 'light';
+
+      localStorage.setItem('theme', newTheme);
+
+      return newTheme;
+    });
+  };
+
+  // ============================================
+  // INITIAL LOADER
+  // ============================================
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -162,32 +127,32 @@ const App = () => {
     };
   }, []);
 
-  // ==========================================
+  // ============================================
   // RENDER
-  // ==========================================
+  // ============================================
 
   return (
     <>
-      {/* ======================================
+      {/* ========================================
           MAIN LOADER
-      ====================================== */}
+      ======================================== */}
 
       <AnimatePresence mode="wait">
         {loading && <MainLoader />}
       </AnimatePresence>
 
-      {/* ======================================
+      {/* ========================================
           APPLICATION
-      ====================================== */}
+      ======================================== */}
 
       {!loading && (
         <Routes
           location={location}
           key={location.pathname}
         >
-          {/* ====================================
+          {/* ======================================
               PUBLIC ROUTES
-          ==================================== */}
+          ====================================== */}
 
           <Route
             element={
@@ -221,107 +186,104 @@ const App = () => {
               path="/contact"
               element={<Contact />}
             />
+
+            <Route
+              path="*"
+              element={<NotFound />}
+            />
           </Route>
 
-          {/* ====================================
+          {/* ======================================
               ADMIN LOGIN
-          ==================================== */}
+          ====================================== */}
 
           <Route
             path="/command-center/login"
             element={<Login />}
           />
 
-          {/* ====================================
-              PROTECTED ADMIN ROUTES
-          ==================================== */}
+          {/* ======================================
+              COMMAND CENTER
+          ====================================== */}
 
           <Route
             path="/command-center"
-            element={<ProtectedAdminRoute />}
+            element={
+              isAuthenticated() ? (
+                <AdminLayout />
+              ) : (
+                <Navigate
+                  to="/command-center/login"
+                  replace
+                />
+              )
+            }
           >
-            {/* Dashboard */}
-
+            {/* /command-center */}
             <Route
               index
               element={
                 <Navigate
-                  to="dashboard"
+                  to="/command-center/dashboard"
                   replace
                 />
               }
             />
 
+            {/* Dashboard */}
             <Route
               path="dashboard"
               element={<Dashboard />}
             />
 
             {/* Projects */}
-
             <Route
               path="projects"
               element={<ProjectsManager />}
             />
 
             {/* Products */}
-
             <Route
               path="products"
               element={<ProductsManager />}
             />
 
             {/* Homepage */}
-
             <Route
               path="homepage"
               element={<HomepageManager />}
             />
 
             {/* Theme */}
-
             <Route
               path="theme"
               element={<ThemeManager />}
             />
 
             {/* Skills */}
-
             <Route
               path="skills"
               element={<SkillsManager />}
             />
 
             {/* Timeline */}
-
             <Route
               path="timeline"
               element={<TimelineManager />}
             />
 
             {/* Messages */}
-
             <Route
               path="messages"
               element={<MessagesManager />}
             />
 
             {/* Settings */}
-
             <Route
               path="settings"
               element={<SettingsManager />}
             />
           </Route>
-
-          {/* ====================================
-              GLOBAL 404
-          ==================================== */}
-
-          <Route
-            path="*"
-            element={<NotFound />}
-          />
         </Routes>
       )}
     </>

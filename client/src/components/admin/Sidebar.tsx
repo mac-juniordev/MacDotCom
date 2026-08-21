@@ -1,7 +1,7 @@
 // ============================================
 // ADMIN SIDEBAR
-// Clean + animated + safe logout handling
-// Uses public/favicon.svg as the Command Center logo
+// Fixed + animated + safe logout handling
+// Uses public/favicon.svg as Command Center logo
 // ============================================
 
 import { useEffect, useRef, useState } from 'react';
@@ -93,7 +93,6 @@ const CommandLogo = ({
       src="/favicon.svg"
       alt="Command Center"
       className={`${className} object-contain`}
-      draggable={false}
     />
   );
 };
@@ -109,8 +108,6 @@ const Sidebar = ({ collapsed }: SidebarProps) => {
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
 
-  // Keep track of the logout timer so it can be cleaned up
-  // if the Sidebar unmounts before navigation happens.
   const logoutTimerRef = useRef<number | null>(null);
 
   // ============================================
@@ -168,12 +165,23 @@ const Sidebar = ({ collapsed }: SidebarProps) => {
           SIDEBAR
       ======================================== */}
 
-      <aside className="h-full bg-gray-900 border-r border-gray-800 flex flex-col">
+      <aside
+        className="
+          h-full
+          w-full
+          bg-gray-900
+          border-r
+          border-gray-800
+          flex
+          flex-col
+          overflow-hidden
+        "
+      >
         {/* ======================================
             LOGO
         ====================================== */}
 
-        <div className="h-16 px-4 border-b border-gray-800 flex items-center">
+        <div className="h-16 px-4 border-b border-gray-800 flex-shrink-0 flex items-center">
           <AnimatePresence mode="wait">
             {!collapsed ? (
               <motion.div
@@ -216,9 +224,6 @@ const Sidebar = ({ collapsed }: SidebarProps) => {
                   opacity: 0,
                   scale: 0.8,
                 }}
-                transition={{
-                  duration: 0.2,
-                }}
                 className="w-full flex justify-center"
               >
                 <CommandLogo className="w-8 h-8" />
@@ -229,10 +234,16 @@ const Sidebar = ({ collapsed }: SidebarProps) => {
 
         {/* ======================================
             NAVIGATION
+            NO SCROLLING
         ====================================== */}
 
         <nav
-          className="flex-1 py-4 overflow-y-auto"
+          className="
+            flex-1
+            min-h-0
+            py-4
+            overflow-hidden
+          "
           aria-label="Admin navigation"
         >
           <div className="space-y-1">
@@ -272,7 +283,15 @@ const Sidebar = ({ collapsed }: SidebarProps) => {
                   {isActive && (
                     <motion.div
                       layoutId="activeAdminNav"
-                      className="absolute left-0 top-2 bottom-2 w-1 bg-green-500 rounded-r-full"
+                      className="
+                        absolute
+                        left-0
+                        top-2
+                        bottom-2
+                        w-1
+                        bg-green-500
+                        rounded-r-full
+                      "
                       transition={{
                         type: 'spring',
                         stiffness: 300,
@@ -285,7 +304,8 @@ const Sidebar = ({ collapsed }: SidebarProps) => {
 
                   <Icon
                     className={`
-                      w-5 h-5
+                      w-5
+                      h-5
                       flex-shrink-0
                       ${
                         isActive
@@ -315,7 +335,11 @@ const Sidebar = ({ collapsed }: SidebarProps) => {
                         transition={{
                           duration: 0.15,
                         }}
-                        className="text-sm font-medium whitespace-nowrap"
+                        className="
+                          text-sm
+                          font-medium
+                          whitespace-nowrap
+                        "
                       >
                         {item.label}
                       </motion.span>
@@ -329,9 +353,19 @@ const Sidebar = ({ collapsed }: SidebarProps) => {
 
         {/* ======================================
             LOGOUT
+            SLIGHTLY ABOVE BOTTOM
         ====================================== */}
 
-        <div className="p-3 border-t border-gray-800">
+        <div
+          className="
+            flex-shrink-0
+            px-3
+            pt-3
+            pb-6
+            border-t
+            border-gray-800
+          "
+        >
           <button
             type="button"
             onClick={() => setShowLogoutModal(true)}
@@ -372,6 +406,9 @@ const Sidebar = ({ collapsed }: SidebarProps) => {
                     opacity: 0,
                     x: -10,
                   }}
+                  transition={{
+                    duration: 0.15,
+                  }}
                   className="text-sm font-medium"
                 >
                   Logout
@@ -389,7 +426,17 @@ const Sidebar = ({ collapsed }: SidebarProps) => {
       <AnimatePresence>
         {showLogoutModal && (
           <motion.div
-            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+            className="
+              fixed
+              inset-0
+              z-[100]
+              flex
+              items-center
+              justify-center
+              bg-black/60
+              backdrop-blur-sm
+              p-4
+            "
             initial={{
               opacity: 0,
             }}
@@ -409,7 +456,17 @@ const Sidebar = ({ collapsed }: SidebarProps) => {
               role="dialog"
               aria-modal="true"
               aria-labelledby="logout-title"
-              className="w-full max-w-md bg-gray-900 border border-gray-800 rounded-2xl shadow-2xl p-8 text-center"
+              className="
+                w-full
+                max-w-md
+                bg-gray-900
+                border
+                border-gray-800
+                rounded-2xl
+                shadow-2xl
+                p-8
+                text-center
+              "
               initial={{
                 opacity: 0,
                 scale: 0.8,
@@ -477,14 +534,18 @@ const Sidebar = ({ collapsed }: SidebarProps) => {
 
                   <h3
                     id="logout-title"
-                    className="text-2xl font-bold text-white mb-2"
+                    className="
+                      text-2xl
+                      font-bold
+                      text-white
+                      mb-2
+                    "
                   >
                     Leaving already?
                   </h3>
 
                   <p className="text-gray-400 mb-8">
                     You've done great work today.
-                    <br />
                     Come back soon!
                   </p>
 
@@ -500,7 +561,20 @@ const Sidebar = ({ collapsed }: SidebarProps) => {
                       whileTap={{
                         scale: 0.95,
                       }}
-                      className="px-6 py-3 bg-gray-800 hover:bg-gray-700 text-white rounded-lg font-semibold flex items-center justify-center gap-2 transition-colors"
+                      className="
+                        px-6
+                        py-3
+                        bg-gray-800
+                        hover:bg-gray-700
+                        text-white
+                        rounded-lg
+                        font-semibold
+                        flex
+                        items-center
+                        justify-center
+                        gap-2
+                        transition-colors
+                      "
                     >
                       <X className="w-4 h-4" />
                       Stay
@@ -515,7 +589,20 @@ const Sidebar = ({ collapsed }: SidebarProps) => {
                       whileTap={{
                         scale: 0.95,
                       }}
-                      className="px-6 py-3 bg-red-500 hover:bg-red-600 text-white rounded-lg font-semibold flex items-center justify-center gap-2 transition-colors"
+                      className="
+                        px-6
+                        py-3
+                        bg-red-500
+                        hover:bg-red-600
+                        text-white
+                        rounded-lg
+                        font-semibold
+                        flex
+                        items-center
+                        justify-center
+                        gap-2
+                        transition-colors
+                      "
                     >
                       <LogOut className="w-4 h-4" />
                       Logout
@@ -530,7 +617,7 @@ const Sidebar = ({ collapsed }: SidebarProps) => {
 
               {loggingOut && (
                 <>
-                  {/* Animated Command Center Logo */}
+                  {/* Animated logo */}
 
                   <motion.div
                     initial={{
@@ -548,10 +635,9 @@ const Sidebar = ({ collapsed }: SidebarProps) => {
                     className="inline-block mb-6"
                   >
                     <div className="relative w-20 h-20">
-                      {/* Rotating ring */}
-
-                      <motion.div
-                        className="absolute inset-0 rounded-full border-4 border-gray-800 border-t-green-500"
+                      <motion.svg
+                        viewBox="0 0 100 100"
+                        className="w-20 h-20"
                         animate={{
                           rotate: 360,
                         }}
@@ -560,23 +646,32 @@ const Sidebar = ({ collapsed }: SidebarProps) => {
                           repeat: Infinity,
                           ease: 'linear',
                         }}
-                      />
-
-                      {/* Actual logo */}
-
-                      <motion.div
-                        className="absolute inset-2 flex items-center justify-center"
-                        animate={{
-                          scale: [1, 1.05, 1],
-                        }}
-                        transition={{
-                          duration: 1.2,
-                          repeat: Infinity,
-                          ease: 'easeInOut',
-                        }}
                       >
-                        <CommandLogo className="w-14 h-14" />
-                      </motion.div>
+                        <circle
+                          cx="50"
+                          cy="50"
+                          r="44"
+                          fill="none"
+                          stroke="#1f2937"
+                          strokeWidth="4"
+                        />
+
+                        <circle
+                          cx="50"
+                          cy="50"
+                          r="44"
+                          fill="none"
+                          stroke="#10b981"
+                          strokeWidth="4"
+                          strokeLinecap="round"
+                          strokeDasharray="70 210"
+                        />
+
+                        <path
+                          d="M 35 35 L 50 20 L 65 35 L 65 65 L 50 80 L 35 65 Z"
+                          fill="#10b981"
+                        />
+                      </motion.svg>
                     </div>
                   </motion.div>
 
@@ -589,7 +684,12 @@ const Sidebar = ({ collapsed }: SidebarProps) => {
                       opacity: 1,
                       y: 0,
                     }}
-                    className="text-2xl font-bold text-white mb-2"
+                    className="
+                      text-2xl
+                      font-bold
+                      text-white
+                      mb-2
+                    "
                   >
                     Goodbye, Mac!
                   </motion.h3>
@@ -611,9 +711,24 @@ const Sidebar = ({ collapsed }: SidebarProps) => {
 
                   {/* Loading bar */}
 
-                  <div className="w-48 h-1 bg-gray-800 rounded-full overflow-hidden mx-auto mt-6">
+                  <div
+                    className="
+                      w-48
+                      h-1
+                      bg-gray-800
+                      rounded-full
+                      overflow-hidden
+                      mx-auto
+                      mt-6
+                    "
+                  >
                     <motion.div
-                      className="h-full bg-gradient-to-r from-red-500 to-green-500"
+                      className="
+                        h-full
+                        bg-gradient-to-r
+                        from-red-500
+                        to-green-500
+                      "
                       initial={{
                         x: '-100%',
                       }}
